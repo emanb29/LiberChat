@@ -1,7 +1,7 @@
 package me.ethanbell.liberchat
 
 import com.typesafe.scalalogging.LazyLogging
-import fastparse._
+import fastparse.{parse => fparse, _}
 
 /**
  * An IRC message
@@ -21,8 +21,14 @@ case class ResponseMessage(override val prefix: Option[String], response: Respon
 }
 
 object Message extends LazyLogging {
-
+  def parse(str: String): Parsed[Message] = fparse(str, Parser.message(_))
   // TODO optimize ~~s to ~~/s where appropriate
+
+  /**
+   * A parser to parse IRC message grammar
+   * @note we distinguish at the type level between "command messages" and "response messages", though both extend "Message"
+   * @see https://tools.ietf.org/html/rfc2812#section-2.3.1
+   */
   object Parser {
     def SingleChar[_: P](c: Char): P[Char] = CharIn(c.toString).!.map(_.head)
 
@@ -36,13 +42,13 @@ object Message extends LazyLogging {
     def prefix[_: P]: P[String] = CharIn(":") ~~ CharPred(_ != ' ').repX.! ~~ space
 
     def command[_: P]: P[Either[Command, Response]] =
-      (commandIdent ~~ params).map(t => t.copy(_2 = t._2.toVector)).map {
+      (commandIdent ~~ params).map(pair => pair.copy(_2 = pair._2.toVector)).map {
         case (Left(cmdName), args)       => ??? // TODO
         case (Right(responseCode), args) => ??? // TODO
       }
 
     /**
-     * A command (or response "identity")
+     * A command (or response) "identity"
      * @return either the string name of the command (left) or the status code of the response (right)
      */
     def commandIdent[_: P]: P[Either[String, Int]] = (commandStr | responseCode).map {
@@ -54,11 +60,15 @@ object Message extends LazyLogging {
     def responseCode[_: P]: P[Int]  = CharIn("0-9").repX(exactly = 3).!.map(_.toInt)
 
     def varparams[_: P]: P[Seq[String]] =
-      ((space ~~ middle).repX(min = 0, max = 14) ~~ (space ~~ SingleChar(':') ~~ trailing).?)
-        .map(_._1)
+      ((space ~~ middle).repX(max = 14) ~~ (space ~~ SingleChar(':') ~~ trailing).?).map {
+        case (heads, None)                     => heads
+        case (heads, Some((colon, lastParam))) => heads :+ lastParam
+      }
     def fixedparams[_: P]: P[Seq[String]] =
-      ((space ~~ middle).repX(exactly = 14) ~~ (space ~~ SingleChar(':') ~~ trailing).?)
-        .map(_._1)
+      ((space ~~ middle).repX(exactly = 14) ~~ (space ~~ SingleChar(':').? ~~ trailing).?).map {
+        case (heads, None)                          => heads
+        case (heads, Some((maybeColon, lastParam))) => heads :+ lastParam
+      }
     def params[_: P]: P[Seq[String]] = varparams | fixedparams
 
     /**
@@ -73,11 +83,22 @@ object Message extends LazyLogging {
       "\u003B-\u00FF"
     ).!.map(_.head)
 
+    /**
+     * A middle-position parameter
+     * @tparam _
+     * @return
+     */
     def middle[_: P]: P[String] = (nonspecial ~~ (nonspecial | SingleChar(':')).repX).map {
       case (head, tail) => head +: tail.mkString
     }
+
+    /**
+     * A trailing parameter which may contain spaces
+     * @tparam _
+     * @return
+     */
     def trailing[_: P]: P[String] =
-      (SingleChar(':') | SingleChar('|') | nonspecial).repX.map(_.mkString)
+      (SingleChar(':') | SingleChar(' ') | nonspecial).repX.map(_.mkString)
     def space[_: P]: P[Unit] = P("\u0020")
     def crlf[_: P]: P[Unit]  = P("\u000D\u000A")
   }
