@@ -5,9 +5,12 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "2.13.1"
 ThisBuild / name := "LiberChat"
 
-val scalaTestV   = "3.1.1"
-val scalaCheckV  = "1.14.1"
-val akkaStreamsV = "2.6.4"
+val scalaTestV    = "3.1.1"
+val scalaCheckV   = "1.14.1"
+val akkaStreamsV  = "2.6.4"
+val fastParseV    = "2.2.2"
+val logbackV      = "1.2.3"
+val scalaLoggingV = "3.9.2"
 
 lazy val commonSettings = List(
   scalacOptions ++= Seq(
@@ -25,9 +28,12 @@ lazy val commonSettings = List(
         "-Yrangepos"
       ),
   libraryDependencies ++= Seq(
-        "com.typesafe.akka" %% "akka-stream" % akkaStreamsV,
-        "org.scalatest"     %% "scalatest"   % scalaTestV % "test",
-        "org.scalacheck"    %% "scalacheck"  % scalaCheckV % "test"
+        "com.typesafe.akka"          %% "akka-stream"    % akkaStreamsV,
+        "com.lihaoyi"                %% "fastparse"      % fastParseV,
+        "ch.qos.logback"             % "logback-classic" % logbackV,
+        "com.typesafe.scala-logging" %% "scala-logging"  % scalaLoggingV,
+        "org.scalatest"              %% "scalatest"      % scalaTestV % "test",
+        "org.scalacheck"             %% "scalacheck"     % scalaCheckV % "test"
       ),
   crossScalaVersions := supportedScalaVersions,
   scalacOptions ++= (scalaVersion.value match {
