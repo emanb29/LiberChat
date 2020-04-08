@@ -24,7 +24,7 @@ lazy val commonSettings = List(
         "-Yrangepos"
       ),
   libraryDependencies ++= Seq(
-        "org.scalatest"  %% "scalatest"  % scalaTestV % "test",
+        "org.scalatest"  %% "scalatest"  % scalaTestV  % "test",
         "org.scalacheck" %% "scalacheck" % scalaCheckV % "test"
       ),
   crossScalaVersions := supportedScalaVersions,
@@ -41,4 +41,8 @@ lazy val commonSettings = List(
   Compile / console / scalacOptions --= Seq("-deprecation", "-Xfatal-warnings", "-Xlint"),
   scalafmtOnCompile := true
 )
-lazy val liberChat = (project in file(".")).settings(commonSettings)
+lazy val common = (project in file("common/")).settings(commonSettings)
+lazy val client = (project in file("client/")).settings(commonSettings).dependsOn(common)
+lazy val server = (project in file("server/")).settings(commonSettings).dependsOn(common)
+
+Global / onLoad ~= (_ andThen ("project server" :: _))
