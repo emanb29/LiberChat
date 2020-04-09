@@ -21,7 +21,52 @@ case class ResponseMessage(override val prefix: Option[String], response: Respon
 }
 
 object Message extends LazyLogging {
-  def parse(str: String): Parsed[Option[Message]] = fparse(str, Parser.message(_))
+  trait ParseError extends Exception
+  object ParseError {
+    case object Impossible extends ParseError
+
+    /**
+     * The command name provided was not recognized
+     * @param commandName
+     * @param args
+     */
+    case class UnknownCommand(commandName: String, args: Seq[String]) extends ParseError
+
+    /**
+     * The command was recognized, but there were not enough parameters for the command
+     * @param commandName
+     * @param args
+     * @param expectedArity
+     */
+    case class TooFewCommandParams(commandName: String, args: Seq[String], expectedArity: Int)
+        extends ParseError
+
+    /**
+     * The response code of the message was not recognized
+     * @param responseCode
+     * @param args
+     */
+    case class UnknownResponseCode(responseCode: Int, args: Seq[String]) extends ParseError
+
+    /**
+     * The response code of the message was recognized, but there were fewer parameters than expected
+     * @param responseCode
+     * @param args
+     * @param expectedArity
+     */
+    case class TooFewResponseParams(responseCode: Int, args: Seq[String], expectedArity: Int)
+        extends ParseError
+  }
+
+  /**
+   * Attempt to parse an IRC message
+   * @param str
+   * @return None when there was no message, just a CRLF
+   *         Some(Left(error)) when an error occurred during parsing
+   *         Some(Right(message)) when the message was successfully parsed
+   */
+  def parse(str: String): Parsed[Option[Either[Message.ParseError, Message]]] =
+    fparse(str, Parser.message(_))
   // TODO optimize ~~s to ~~/s where appropriate
 
   /**
@@ -38,18 +83,21 @@ object Message extends LazyLogging {
 
     def SingleChar[_: P](c: Char): P[Char] = CharPred(_ == c).!.map(_.head)
 
-    def message[_: P]: P[Option[Message]] = ((prefix.? ~~ commandLike).? ~~ crlf).map {
-      case None                               => None // an empty line with just a crlf is "silently ignored"
-      case Some((prefix, command: Command))   => Some(CommandMessage(prefix, command))
-      case Some((prefix, response: Response)) => Some(ResponseMessage(prefix, response))
-      case Some((prefix, _)) =>
-        logger.error(
-          s"Received an IRC message which was neither a command nor a response from $prefix"
-        )
-        ???
-    }
+    def message[_: P]: P[Option[Either[Message.ParseError, Message]]] =
+      ((prefix.? ~~ commandLike).? ~~ crlf).map {
+        case None                                    => None // an empty line with just a crlf is "silently ignored"
+        case Some((_, Left(parseError)))             => Some(Left(parseError))
+        case Some((prefix, Right(command: Command))) => Some(Right(CommandMessage(prefix, command)))
+        case Some((prefix, Right(response: Response))) =>
+          Some(Right(ResponseMessage(prefix, response)))
+        case Some((prefix, Right(_))) =>
+          logger.error(
+            s"Received an IRC message which was neither a command nor a response from $prefix"
+          )
+          Some(Left(ParseError.Impossible))
+      }
 
-    def commandLike[_: P]: P[CommandLike] = (commandId ~~ params).map {
+    def commandLike[_: P]: P[Either[Message.ParseError, CommandLike]] = (commandId ~~ params).map {
       case (Left(commandName), args)   => ??? // TODO
       case (Right(responseCode), args) => ??? // TODO
     }
