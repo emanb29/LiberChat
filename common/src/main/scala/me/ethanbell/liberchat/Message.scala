@@ -94,12 +94,12 @@ object Message extends LazyLogging {
           logger.error(
             s"Received an IRC message which was neither a command nor a response from $prefix"
           )
-          Some(Left(ParseError.Impossible))
+          Some(Left(ParseError.Impossible)) // This is impossible because the _only_ things that inherit [[CommandLike]] are [[Command]] and [[Response]]
       }
 
     def commandLike[_: P]: P[Either[Message.ParseError, CommandLike]] = (commandId ~~ params).map {
-      case (Left(commandName), args)   => ??? // TODO
-      case (Right(responseCode), args) => ??? // TODO
+      case (Left(commandName), args)   => Command.parse(commandName, args)
+      case (Right(responseCode), args) => Response.parse(responseCode, args)
     }
 
     def prefix[_: P]: P[String] =
