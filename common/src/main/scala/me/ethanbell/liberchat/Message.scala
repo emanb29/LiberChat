@@ -21,85 +21,55 @@ case class ResponseMessage(override val prefix: Option[String], response: Respon
 }
 
 object Message extends LazyLogging {
-  def parse(str: String): Parsed[Message] = fparse(str, Parser.message(_))
+  def parse(str: String): Parsed[Option[Message]] = fparse(str, Parser.message(_))
   // TODO optimize ~~s to ~~/s where appropriate
 
   /**
    * A parser to parse IRC message grammar
    * @note we distinguish at the type level between "command messages" and "response messages", though both extend "Message"
-   * @see https://tools.ietf.org/html/rfc2812#section-2.3.1
+   * @see https://tools.ietf.org/html/rfc1459#section-2.3.1
    */
   object Parser {
-    def SingleChar[_: P](c: Char): P[Char] = CharIn(c.toString).!.map(_.head)
+    def nonSpecial(char: Char): Boolean = char match {
+      case '\u000D' | '\u000A' | '\u0000' => false
+      case _                              => true
+    }
+    def nonSpecialOrSpace(char: Char): Boolean = nonSpecial(char) && char != '\u0020'
 
-    def message[_: P]: P[Message] = (prefix.? ~~ command).map {
-      case (nickname, Left(command)) =>
-        CommandMessage(nickname, command) // TODO check that nickname is valid?
-      case (prefix, Right(response)) =>
-        ResponseMessage(prefix, response) // if prefix is None... "assumed to have originated from the connection from which it was received from"
+    def SingleChar[_: P](c: Char): P[Char] = CharPred(_ == c).!.map(_.head)
+
+    def message[_: P]: P[Option[Message]] = ((prefix.? ~~ commandLike).? ~~ crlf).map {
+      case None                               => None // an empty line with just a crlf is "silently ignored"
+      case Some((prefix, command: Command))   => Some(CommandMessage(prefix, command))
+      case Some((prefix, response: Response)) => Some(ResponseMessage(prefix, response))
+      case Some((prefix, _)) =>
+        logger.error(
+          s"Received an IRC message which was neither a command nor a response from $prefix"
+        )
+        ???
     }
 
-    def prefix[_: P]: P[String] = CharIn(":") ~~ CharPred(_ != ' ').repX.! ~~ space
-
-    def command[_: P]: P[Either[Command, Response]] =
-      (commandIdent ~~ params).map(pair => pair.copy(_2 = pair._2.toVector)).map {
-        case (Left(cmdName), args)       => ??? // TODO
-        case (Right(responseCode), args) => ??? // TODO
-      }
-
-    /**
-     * A command (or response) "identity"
-     * @return either the string name of the command (left) or the status code of the response (right)
-     */
-    def commandIdent[_: P]: P[Either[String, Int]] = (commandStr | responseCode).map {
-      case commandName: String => Left(commandName)
-      case responseCode: Int   => Right(responseCode)
+    def commandLike[_: P]: P[CommandLike] = (commandId ~~ params).map {
+      case (Left(commandName), args)   => ??? // TODO
+      case (Right(responseCode), args) => ??? // TODO
     }
 
-    def commandStr[_: P]: P[String] = CharIn("a-zA-Z").repX(1).!
-    def responseCode[_: P]: P[Int]  = CharIn("0-9").repX(exactly = 3).!.map(_.toInt)
+    def prefix[_: P]: P[String] =
+      ":" ~~ CharsWhile(nonSpecialOrSpace).! // TODO maybe parse further?
 
-    def varparams[_: P]: P[Seq[String]] =
-      ((space ~~ middle).repX(max = 14) ~~ (space ~~ SingleChar(':') ~~ trailing).?).map {
-        case (heads, None)                     => heads
-        case (heads, Some((colon, lastParam))) => heads :+ lastParam
-      }
-    def fixedparams[_: P]: P[Seq[String]] =
-      ((space ~~ middle).repX(exactly = 14) ~~ (space ~~ SingleChar(':').? ~~ trailing).?).map {
-        case (heads, None)                          => heads
-        case (heads, Some((maybeColon, lastParam))) => heads :+ lastParam
-      }
-    def params[_: P]: P[Seq[String]] = varparams | fixedparams
+    def commandId[_: P]: P[Either[String, Int]] =
+      (CharIn("a-zA-Z").repX(1).!.map(Left(_))
+        | CharIn("0-9").repX(0, null, 0, 3).!.map(num => Right(num.toInt)))
 
-    /**
-     * Any 8-bit character except one of " \r\n:"
-     * @return the character matched
-     */
-    def nonspecial[_: P]: P[Char] = CharIn(
-      "\u0001-\u0009",
-      "\u000B-\u000C",
-      "\u000E-\u001F",
-      "\u0021-\u0039",
-      "\u003B-\u00FF"
-    ).!.map(_.head)
+    def params[_: P]: P[Seq[String]] =
+      space ~~
+          (":" ~~ trailing.map(List(_))
+            | (middle ~~ params).map { case (head, tail) => head +: tail })
 
-    /**
-     * A middle-position parameter
-     * @tparam _
-     * @return
-     */
-    def middle[_: P]: P[String] = (nonspecial ~~ (nonspecial | SingleChar(':')).repX).map {
-      case (head, tail) => head +: tail.mkString
-    }
+    def middle[_: P]: P[String]   = CharsWhile(nonSpecialOrSpace, 1).!
+    def trailing[_: P]: P[String] = !SingleChar(':') ~~ CharsWhile(nonSpecial).!
 
-    /**
-     * A trailing parameter which may contain spaces
-     * @tparam _
-     * @return
-     */
-    def trailing[_: P]: P[String] =
-      (SingleChar(':') | SingleChar(' ') | nonspecial).repX.map(_.mkString)
-    def space[_: P]: P[Unit] = P("\u0020")
+    def space[_: P]: P[Unit] = P("\u0020").repX(1)
     def crlf[_: P]: P[Unit]  = P("\u000D\u000A")
   }
 }

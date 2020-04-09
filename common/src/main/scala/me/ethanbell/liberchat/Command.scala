@@ -1,6 +1,6 @@
 package me.ethanbell.liberchat
 
-trait CommandLike {
+protected[liberchat] trait CommandLike {
   def name: String
 }
 
