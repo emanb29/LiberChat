@@ -9,6 +9,8 @@ import fastparse.{parse => fparse, _}
 sealed trait Message {
   def prefix: Option[String]
   def commandLike: CommandLike
+  def serialize: String =
+    prefix.fold("")(':' +: _ :+ ' ') ++ commandLike.serialize
 }
 
 case class CommandMessage(nickname: Option[String] = None, command: Command) extends Message {
