@@ -23,7 +23,19 @@ case object Command {
         Right(Nick(IRCString(nick), hops.toIntOption))
       case ("NICK", nick :: _) => Right(Nick(IRCString(nick), None))
       case ("NICK", Nil)       => Left(TooFewCommandParams(commandName, args, 1))
-      case _                   => Left(UnknownCommand(commandName, args))
+      case ("USER", username :: hostname :: servername :: realname :: _) =>
+        Right(User(username, hostname, servername, realname))
+      case ("USER", _) => Left(TooFewCommandParams(commandName, args, 4))
+      case ("SERVER", servername :: hopcount :: info :: _) if hopcount.toIntOption.isDefined =>
+        Right(Server(servername, hopcount.toInt, info))
+      case ("SERVER", _)                     => Left(TooFewCommandParams(commandName, args, 3))
+      case ("OPER", user :: pass :: _)       => Right(Oper(user, pass))
+      case ("OPER", _)                       => Left(TooFewCommandParams(commandName, args, 2))
+      case ("QUIT", Nil)                     => Right(Quit(None))
+      case ("QUIT", message :: _)            => Right(Quit(Some(message)))
+      case ("SQUIT", server :: message :: _) => Right(SQuit(server, message))
+      case ("SQUIT", _)                      => Left(TooFewCommandParams(commandName, args, 2))
+      case _                                 => Left(UnknownCommand(commandName, args))
     }
 
   /**

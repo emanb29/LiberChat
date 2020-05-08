@@ -3,7 +3,6 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Tcp
 
 import scala.jdk.CollectionConverters._
-import scala.util.Try
 
 case object Main extends App {
   println("Server starting...")

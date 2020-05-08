@@ -35,7 +35,8 @@ object Message extends LazyLogging {
     case class UnknownCommand(commandName: String, args: Seq[String]) extends LexError
 
     /**
-     * The command was recognized, but there were not enough parameters for the command
+     * The command was recognized, but there were not enough valid parameters for the command
+     * @note this may also represent a type error in one or more of the arguments
      * @param commandName
      * @param args
      * @param expectedArity
