@@ -38,14 +38,15 @@ lazy val commonSettings = List(
   crossScalaVersions := supportedScalaVersions,
   scalacOptions ++= (scalaVersion.value match {
         case VersionNumber(Seq(2, 12, _*), _, _) | VersionNumber(Seq(2, 13, _*), _, _) =>
-          List("-Xfatal-warnings")
+          Seq("-Xfatal-warnings")
         case _ => Nil
       }),
   scalacOptions --= (scalaVersion.value match {
         case VersionNumber(Seq(2, 13, _*), _, _) =>
-          List("-Ypartial-unification")
+          Seq("-Ypartial-unification")
         case _ => Nil
       }),
+  Test / scalacOptions --= Seq("-Xfatal-warnings"),
   Compile / console / scalacOptions --= Seq("-deprecation", "-Xfatal-warnings", "-Xlint"),
   scalafmtOnCompile := true
 )

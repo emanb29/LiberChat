@@ -14,7 +14,6 @@
         <parameter value="utf8" />
         <parameter value="-Xlint" />
         <parameter value="-Yrangepos" />
-        <parameter value="-Xfatal-warnings" />
       </parameters>
     </profile>
     <profile name="sbt 2" modules="liberChat,liberchat" />

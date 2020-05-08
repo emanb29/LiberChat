@@ -9,7 +9,7 @@ sealed trait Response extends CommandLike {
   override def name: String = code.toString
 }
 case object Response {
-  import Message.ParseError._
+  import Message.LexError._
 
   /**
    * Try to construct a [[Response]] given a code and a sequence of arguments
@@ -18,7 +18,7 @@ case object Response {
    * @param args
    * @return
    */
-  def parse(code: Int, args: Seq[String]): Either[Message.ParseError, Response] =
+  def parse(code: Int, args: Seq[String]): Either[Message.LexError, Response] =
     (code, args.toList) match {
       case (461, commandName :: _) => Right(ERR_NEEDMOREPARAMS(commandName))
       case (461, Nil)              => Left(TooFewResponseParams(code, args, 1))

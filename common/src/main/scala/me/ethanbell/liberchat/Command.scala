@@ -16,10 +16,14 @@ protected[liberchat] trait CommandLike {
 sealed trait Command extends CommandLike
 
 case object Command {
-  import Message.ParseError._
-  def parse(commandName: String, args: Seq[String]): Either[Message.ParseError, Command] =
+  import Message.LexError._
+  def parse(commandName: String, args: Seq[String]): Either[Message.LexError, Command] =
     (commandName, args.toList) match {
-      case _ => Left(UnknownCommand(commandName, args))
+      case ("NICK", nick :: hops :: _) if hops.toIntOption.isDefined =>
+        Right(Nick(IRCString(nick), hops.toIntOption))
+      case ("NICK", nick :: _) => Right(Nick(IRCString(nick), None))
+      case ("NICK", Nil)       => Left(TooFewCommandParams(commandName, args, 1))
+      case _                   => Left(UnknownCommand(commandName, args))
     }
 
   /**
