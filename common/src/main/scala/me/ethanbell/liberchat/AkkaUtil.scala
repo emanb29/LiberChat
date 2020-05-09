@@ -1,9 +1,14 @@
 package me.ethanbell.liberchat
 
 import akka.NotUsed
+import akka.actor.typed.ActorRef
 import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Partition}
-object AkkaStreamsUtil {
+object AkkaUtil {
+  trait Replyable {
+    type T
+    val replyTo: ActorRef[T]
+  }
   implicit class FlowOps[-In, L, R, +Mat](flow: Flow[In, Either[L, R], Mat]) {
     def viaEitherMat[Out, M1, M2, M3](
       leftFlow: Flow[L, Out, M1],
