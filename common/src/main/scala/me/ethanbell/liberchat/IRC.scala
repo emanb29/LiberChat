@@ -25,8 +25,19 @@ case object IRC {
           parseAttempt = Message.parse(unparsedString)
         }
         parseAttempt match {
-          case _: Parsed.Failure if unparsedString.length < MAX_BYTES =>
-            parsedMessages // When we finally hit a failure, return the results we did manage to accrue
+          case _: Parsed.Failure
+              if unparsedString.length < MAX_BYTES => // When we finally hit a failure, return the results we did manage to accrue
+            // clear extra garbage
+            if (unparsedString.endsWith("\r\n"))
+              unparsedString = "" // \r\n was at the end of the unparsed section. If it wasn't already parsed, it never will be.
+            else
+              unparsedString.split("\r\n").toList match {
+                case twoOrMoreUnparsedLines @ (_ :: _ :: _) =>
+                  unparsedString = twoOrMoreUnparsedLines.last
+                case _ => () // careful not to crash your function assuming totality
+              }
+            // return the accumulated results
+            parsedMessages
           case _: Parsed.Failure =>
             throw new RuntimeException(s"failed to parse after $MAX_BYTES bytes")
         }

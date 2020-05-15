@@ -37,6 +37,32 @@ class IRCTest extends AnyFunSuite {
         fail(s"Expected a Right(CommandMessage(_, Nick)) but got $firstEither")
     }
   }
+  test("IRC.parseMessagesFlow should gracefully fail to parse invalid messages") {
+    val parsed = Await
+      .result(
+        Source
+          .single(":NICK :emanb29\r\n\r\n")
+          .via(IRC.parseMessagesFlow)
+          .runWith(Sink.seq),
+        Duration(2, "sec")
+      )
+      .toList
+    assert(parsed.length === 1)
+    val firstEither :: secondEither :: Nil = parsed
+    firstEither match {
+      case Right(CommandMessage(_, Nick(nick, hopcount))) =>
+        assert(nick.caseInsensitiveCompare("emanb29".irc))
+        assert(hopcount === None)
+      case _ =>
+    }
+    secondEither match {
+      case Right(CommandMessage(_, Nick(nick, hopcount))) =>
+        assert(nick.caseInsensitiveCompare("ethan".irc))
+        assert(hopcount === Some(2))
+      case _ =>
+        fail(s"Expected a Right(CommandMessage(_, Nick)) but got $firstEither")
+    }
+  }
   test("IRC.parseMessagesFlow should recombine multiple messages") {
     val testMessages = List("NICK :emanb", "29\r", "\nNICK ethan :2\r\n", "\r\n")
     val parsed = Await
@@ -64,4 +90,5 @@ class IRCTest extends AnyFunSuite {
         fail(s"Expected a Right(CommandMessage(_, Nick)) but got $firstEither")
     }
   }
+
 }

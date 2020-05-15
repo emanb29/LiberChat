@@ -88,7 +88,7 @@ object Message extends LazyLogging {
     def SingleChar[_: P](c: Char): P[Char] = CharPred(_ == c).!.map(_.head)
 
     def message[_: P]: P[Option[Either[Message.LexError, Message]]] =
-      ((prefix.? ~~ commandLike).? ~~ crlf).map {
+      ((prefix.? ~~ commandLike).? ~~/ crlf).map {
         case None                                    => None // an empty line with just a crlf is "silently ignored"
         case Some((_, Left(parseError)))             => Some(Left(parseError))
         case Some((prefix, Right(command: Command))) => Some(Right(CommandMessage(prefix, command)))
