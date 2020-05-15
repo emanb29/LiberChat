@@ -25,9 +25,10 @@ case object IRC {
           parseAttempt = Message.parse(unparsedString)
         }
         parseAttempt match {
-          case _: Parsed.Failure
-              if unparsedString.length < MAX_BYTES => // When we finally hit a failure, return the results we did manage to accrue
-            // clear extra garbage
+          case _: Parsed.Failure if unparsedString.length < MAX_BYTES =>
+            // When we finally hit a failure, return the results we did manage to accrue
+            // but first, clear extra garbage. NOTE that this is acceptable because the RFC leaves unspecified
+            // what to do with completely invalid lines. We choose to ignore them.
             if (unparsedString.endsWith("\r\n"))
               unparsedString = "" // \r\n was at the end of the unparsed section. If it wasn't already parsed, it never will be.
             else
