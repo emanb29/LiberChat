@@ -101,10 +101,11 @@ object Message extends LazyLogging {
           Some(Left(LexError.Impossible)) // This is impossible because the _only_ things that inherit [[CommandLike]] are [[Command]] and [[Response]]
       }
 
-    def commandLike[_: P]: P[Either[Message.LexError, CommandLike]] = (commandId ~~ params).map {
-      case (Left(commandName), args)   => Command.parse(commandName, args)
-      case (Right(responseCode), args) => Response.parse(responseCode, args)
-    }
+    def commandLike[_: P]: P[Either[Message.LexError, CommandLike]] =
+      (commandId ~~ params.?.map(_.toList.flatten)).map {
+        case (Left(commandName), args)   => Command.parse(commandName, args)
+        case (Right(responseCode), args) => Response.parse(responseCode, args)
+      }
 
     def prefix[_: P]: P[String] =
       ":" ~~ CharsWhile(nonSpecialOrSpace).! // TODO maybe parse further?
