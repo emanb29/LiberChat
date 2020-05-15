@@ -117,8 +117,8 @@ object Message extends LazyLogging {
     def params[_: P]: P[Seq[String]] =
       space ~~
           (":" ~~ trailing.map(List(_))
-            | middle.map(List(_))
-            | (middle ~~ params).map { case (head, tail) => head +: tail })
+            | (middle ~~ params).map { case (head, tail) => head +: tail } // These parsers are tested in order, so the recursive one _must_ come first.
+            | middle.map(List(_)))
 
     def middle[_: P]: P[String]   = CharsWhile(nonSpecialOrSpace, 1).!
     def trailing[_: P]: P[String] = !SingleChar(':') ~~ CharsWhile(nonSpecial).!

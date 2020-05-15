@@ -18,7 +18,7 @@ sealed trait Command extends CommandLike
 case object Command {
   import Message.LexError._
   def parse(commandName: String, args: Seq[String]): Either[Message.LexError, Command] =
-    (commandName, args.toList) match {
+    (commandName.toUpperCase(), args.toList) match {
       case ("NICK", nick :: hops :: _) if hops.toIntOption.isDefined =>
         Right(Nick(IRCString(nick), hops.toIntOption))
       case ("NICK", nick :: _) => Right(Nick(IRCString(nick), None))
