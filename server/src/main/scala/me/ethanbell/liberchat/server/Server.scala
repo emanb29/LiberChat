@@ -10,10 +10,9 @@ import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.{ByteString, Timeout}
 import me.ethanbell.liberchat.AkkaUtil._
 import me.ethanbell.liberchat.Message.LexError
-import me.ethanbell.liberchat.server.IRCCommandActor.ReplyableCommandMsg
 import me.ethanbell.liberchat._
 
-case class Server(actorSystemLink: ActorRef[ReplyableCommandMsg])(implicit timeout: Timeout) {
+case class Server()(implicit sessionActor: ActorRef[SessionActor.Command], timeout: Timeout) {
   private val UTF8 = Charset.forName("UTF-8")
   def flow: Flow[ByteString, ByteString, KillSwitch] =
     Flow[ByteString]
@@ -36,7 +35,7 @@ case class Server(actorSystemLink: ActorRef[ReplyableCommandMsg])(implicit timeo
       case rm: ResponseMessage => Right(rm)
     }
     .viaEither(
-      ActorFlow.ask(actorSystemLink)((cm, replyTo) => ReplyableCommandMsg(replyTo, cm)),
+      ActorFlow.ask(sessionActor)(SessionActor.HandleIRCMessage),
       Flow[ResponseMessage].map(rm => Response.ERR_UNKNOWNCOMMAND(rm.response.name))
     )
 
