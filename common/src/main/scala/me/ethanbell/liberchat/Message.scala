@@ -117,6 +117,7 @@ object Message extends LazyLogging {
     def params[_: P]: P[Seq[String]] =
       space ~~
           (":" ~~ trailing.map(List(_))
+            | middle.map(List(_))
             | (middle ~~ params).map { case (head, tail) => head +: tail })
 
     def middle[_: P]: P[String]   = CharsWhile(nonSpecialOrSpace, 1).!
