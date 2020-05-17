@@ -5,20 +5,21 @@ import java.nio.charset.Charset
 import akka.actor.typed.ActorRef
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import akka.stream.typed.scaladsl.ActorSink
-import akka.stream.{KillSwitch, KillSwitches, OverflowStrategy}
+import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.{ByteString, Timeout}
 import akka.{Done, NotUsed}
 import me.ethanbell.liberchat.AkkaUtil._
 import me.ethanbell.liberchat.Message.LexError
 import me.ethanbell.liberchat.Response.ERR_UNKNOWNCOMMAND
 import me.ethanbell.liberchat._
-import me.ethanbell.liberchat.server.SessionActor.NoOp
+import org.slf4j.Logger
 
 import scala.concurrent.Future
 
 case class Server(actorResponseSource: Source[Response, NotUsed])(
   implicit sessionActor: ActorRef[SessionActor.Command],
-  timeout: Timeout
+  timeout: Timeout,
+  logger: Logger
 ) {
   private val UTF8 = Charset.forName("UTF-8")
   def flow: Flow[ByteString, ByteString, (Future[Done], KillSwitch)] =
@@ -58,8 +59,8 @@ case class Server(actorResponseSource: Source[Response, NotUsed])(
           .to(
             ActorSink.actorRef[SessionActor.Command](
               sessionActor,
-              NoOp,
-              _ => SessionActor.Shutdown
+              SessionActor.NoOp,
+              _ => SessionActor.NoOp
             )
           ),
         actorResponseSource

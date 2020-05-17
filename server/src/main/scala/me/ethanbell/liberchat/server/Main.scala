@@ -8,6 +8,7 @@ import akka.stream.{ActorAttributes, OverflowStrategy, Supervision}
 import akka.util.Timeout
 import me.ethanbell.liberchat.Response
 import me.ethanbell.liberchat.server.SessionActor.Shutdown
+import org.slf4j.Logger
 
 import scala.concurrent.Await
 import scala.jdk.CollectionConverters._
@@ -56,6 +57,7 @@ case object Main extends App {
         timeout.duration
       )
 
+    implicit val logger: Logger = system.log
     val (termination, killSwitch) =
       conn.handleWith(
         Server(actorResponseSource).flow

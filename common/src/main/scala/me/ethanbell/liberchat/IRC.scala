@@ -7,7 +7,7 @@ import me.ethanbell.liberchat.Message.LexError
 
 case object IRC {
 
-  val MAX_BYTES = 100 * 1000
+  val MAX_BYTES = 4 * 1024
   def parseMessagesFlow: Flow[String, Either[LexError, Message], NotUsed] =
     Flow[String].statefulMapConcat { () =>
       // The portion of the string we couldn't yet make work. This is bounded at MAX_BYTES to mitigate denial of service
