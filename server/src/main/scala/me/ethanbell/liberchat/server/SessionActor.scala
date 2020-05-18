@@ -1,31 +1,31 @@
 package me.ethanbell.liberchat.server
 
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
-import javax.management.monitor.StringMonitor
-import me.ethanbell.liberchat.Command.Nick
+import me.ethanbell.liberchat.server.SessionActor.{HandleIRCMessage, ReserveNickCallback}
 import me.ethanbell.liberchat.{CommandMessage, IRCString, Response, Command => IRCCommand}
-import me.ethanbell.liberchat.IRCString._
-import me.ethanbell.liberchat.server.SessionActor.{HandleIRCMessage, TryReserveNickCallback}
 
 object SessionActor {
   sealed trait Command
-  case object NoOp                                extends Command
-  case object Shutdown                            extends Command
-  case class HandleIRCMessage(cm: CommandMessage) extends Command
+  final case object NoOp                                extends Command
+  final case object Shutdown                            extends Command
+  final case class HandleIRCMessage(cm: CommandMessage) extends Command
 
   /**
    * The result of attempting to reserve a nick
    * @param nick The nick we tried to reserve
    * @param success Whether it was successfully reserved.
    */
-  case class TryReserveNickCallback(nick: IRCString, success: Boolean) extends Command
+  final case class ReserveNickCallback(nick: IRCString, success: Boolean) extends Command
 
-  def apply(responseQueue: SourceQueueWithComplete[Response]): Behavior[SessionActor.Command] =
+  def apply(
+    responseQueue: SourceQueueWithComplete[Response],
+    userRegistry: ActorRef[UserRegistryActor.Command]
+  ): Behavior[SessionActor.Command] =
     Behaviors.setup { ctx =>
       ctx.log.debug("Creating a new SessionActor")
-      SessionActor(ctx, responseQueue)
+      SessionActor(ctx, responseQueue, userRegistry)
     }
 }
 
@@ -35,13 +35,13 @@ object SessionActor {
  * @param ctx
  * @param responseQueue
  */
-case class SessionActor(
+final case class SessionActor(
   ctx: ActorContext[SessionActor.Command],
-  responseQueue: SourceQueueWithComplete[Response]
+  responseQueue: SourceQueueWithComplete[Response],
+  userRegistry: ActorRef[UserRegistryActor.Command]
 ) extends AbstractBehavior[SessionActor.Command](ctx) {
   private type MessageHandler =
     PartialFunction[SessionActor.Command, Behavior[SessionActor.Command]]
-
   var currentMessageHandler: MessageHandler = onMessageDuringInit
 
   private lazy val onMessageMain: MessageHandler = {
@@ -50,22 +50,24 @@ case class SessionActor(
       this
   }
 
+  case class InitState(
+    var nick: Option[IRCString] = None,
+    var username: Option[String] = None,
+    var hostname: Option[String] = None,
+    var servername: Option[String] = None,
+    var realname: Option[String] = None
+  ) {
+    def isComplete: Boolean =
+      nick.isDefined && Vector(username, hostname, servername, realname).forall(_.isDefined)
+  }
+  val initState: InitState = InitState()
+
   /**
    * Behavior during initialization.
    * This behavior never directly stops the actor -- behavior changes are handled by setting
    * currentMessageHandler (therefore the concluding "this")
    */
   private lazy val onMessageDuringInit: MessageHandler = {
-    case class InitState(
-      var nick: Option[IRCString] = None,
-      var username: Option[String] = None,
-      var hostname: Option[String] = None,
-      var servername: Option[String] = None,
-      var realname: Option[String] = None
-    ) {
-      def isComplete: Boolean =
-        nick.isDefined && Vector(username, hostname, servername, realname).forall(_.isDefined)
-    }
     def movetoMainPhase(): Unit = {
       ctx.log.debug(s"Connection initialization completed for actor ${ctx.self}")
       currentMessageHandler = onMessageMain
@@ -73,36 +75,34 @@ case class SessionActor(
       responseQueue.offer(???)
     }
 
-    val initState: InitState = InitState()
     ({
-      // If the message is relevant to auth, change the initialization state
-      case relevantMessage @ (SessionActor.HandleIRCMessage(CommandMessage(_, _: IRCCommand.User)) |
-          SessionActor.HandleIRCMessage(CommandMessage(_, _: IRCCommand.Nick))) =>
-        relevantMessage.asInstanceOf[HandleIRCMessage].cm.command match {
+      case SessionActor.HandleIRCMessage(commandMsg) =>
+        commandMsg.command match {
           case IRCCommand.Nick(nick, _) =>
             // TODO attempt to reserve nick. For now, we just pretend every nick is free
-            ctx.self.tell(TryReserveNickCallback(nick, success = true))
+            ctx.self.tell(ReserveNickCallback(nick, success = true))
           case IRCCommand.User(username, hostname, servername, realname) =>
             initState.username = Some(username)
             initState.hostname = Some(hostname)
             initState.servername = Some(servername)
             initState.realname = Some(realname)
+          case _ =>
+            ctx.log.info("User sent non-init related message during init phase")
+            responseQueue.offer(???) // TODO error session needs to be established
         }
+        // If the message might be relevant to auth, change the initialization state
         if (initState.isComplete) movetoMainPhase()
       // For the above behavior, if we got a Nick command, then asked the client registry if the nick was free
-      case TryReserveNickCallback(nick, true) =>
-        if (initState.nick.isDefined) {
-          // TODO if there was a reserved nick, un-reserve it.
+      case ReserveNickCallback(nick, true) =>
+        initState.nick.foreach { oldNick =>
+          userRegistry.tell(UserRegistryActor.FreeNick(oldNick))
         }
         initState.nick = Some(nick)
         if (initState.isComplete) movetoMainPhase()
-      case TryReserveNickCallback(nick, false) =>
+      case ReserveNickCallback(nick, false) =>
         ctx.log.info(s"User at ${ctx.self} requested nick $nick, but that nick was taken")
         responseQueue.offer(???) // TODO error nick taken
       // Any other IRC message is invalid at this stage (PASS notwithstanding)
-      case SessionActor.HandleIRCMessage(_) =>
-        ctx.log.info("User sent non-init related message during init phase")
-        responseQueue.offer(???) // TODO error session needs to be established
     }: PartialFunction[SessionActor.Command, Unit]).andThen(_ => this)
   }
 
@@ -111,8 +111,13 @@ case class SessionActor(
       msg, { // use the current message handler, or fall back to global behaviors
         case SessionActor.Shutdown =>
           ctx.log.debug(s"Shutting down $this")
+          // Free external allocations
+          initState.nick.foreach(nick => userRegistry.tell(UserRegistryActor.FreeNick(nick)))
           Behaviors.stopped
         case SessionActor.NoOp => this
+        case c @ _ =>
+          ctx.log.error(s"Unexpected unhandled command message $c at ${this}")
+          Behaviors.unhandled
       }
     )
 }

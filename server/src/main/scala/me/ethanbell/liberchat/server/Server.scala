@@ -6,20 +6,17 @@ import akka.actor.typed.ActorRef
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import akka.stream.typed.scaladsl.ActorSink
 import akka.stream.{KillSwitch, KillSwitches}
-import akka.util.{ByteString, Timeout}
+import akka.util.ByteString
 import akka.{Done, NotUsed}
 import me.ethanbell.liberchat.AkkaUtil._
 import me.ethanbell.liberchat.Message.LexError
 import me.ethanbell.liberchat.Response.ERR_UNKNOWNCOMMAND
 import me.ethanbell.liberchat._
-import org.slf4j.Logger
 
 import scala.concurrent.Future
 
 case class Server(actorResponseSource: Source[Response, NotUsed])(
-  implicit sessionActor: ActorRef[SessionActor.Command],
-  timeout: Timeout,
-  logger: Logger
+  implicit sessionActor: ActorRef[SessionActor.Command]
 ) {
   private val UTF8 = Charset.forName("UTF-8")
   def flow: Flow[ByteString, ByteString, (Future[Done], KillSwitch)] =
@@ -40,11 +37,11 @@ case class Server(actorResponseSource: Source[Response, NotUsed])(
     case LexError.Impossible                        => ???
     case LexError.UnknownCommand(commandName, args) => ERR_UNKNOWNCOMMAND(commandName)
     case LexError.UnknownResponseCode(responseCode, args) =>
-      ERR_UNKNOWNCOMMAND(responseCode.toString) // TODO
+      ERR_UNKNOWNCOMMAND(responseCode.toString) // TODO should be response-related
     case LexError.TooFewCommandParams(commandName, args, expectedArity) =>
       Response.ERR_NEEDMOREPARAMS(commandName)
     case LexError.TooFewResponseParams(responseCode, args, expectedArity) =>
-      Response.ERR_NEEDMOREPARAMS(responseCode.toString) // TODO
+      Response.ERR_NEEDMOREPARAMS(responseCode.toString) // TODO should probably? be response-related
   }
 
   def handleMessages: Flow[Message, Response, NotUsed] = Flow[Message]
