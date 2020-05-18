@@ -26,6 +26,9 @@ case class IRCString(str: String) {
     case '~'  => '^'
     case c    => c.toLower
   })
+
+  override def toString: String = str
+
   def caseInsensitiveCompare(other: IRCString): Boolean = other.toUpper.str == this.toUpper.str
 
   override def equals(obj: Any): Boolean =
