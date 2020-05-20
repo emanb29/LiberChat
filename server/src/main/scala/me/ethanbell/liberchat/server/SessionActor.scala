@@ -71,8 +71,10 @@ final case class SessionActor(
     def movetoMainPhase(): Unit = {
       ctx.log.debug(s"Connection initialization completed for actor ${ctx.self}")
       currentMessageHandler = onMessageMain
-      // TODO send ready (101) response to client
-      responseQueue.offer(???)
+      assert(initState.isComplete)
+      responseQueue.offer(
+        Response.RPL_WELCOME(initState.nick.get, initState.username.get, initState.hostname.get)
+      )
     }
 
     ({

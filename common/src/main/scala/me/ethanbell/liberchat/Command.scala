@@ -27,7 +27,7 @@ case object Command {
         Right(User(username, hostname, servername, realname))
       case ("USER", _)          => Left(TooFewCommandParams(commandName, args, 4))
       case ("JOIN", "0" :: Nil) => Right(LeaveAll)
-      case ("JOIN", channels :: _ /*keys*/ :: _) =>
+      case ("JOIN", channels :: _) => // TODO add a keyed variant
         val chans = channels.split(",")
         if (chans.forall(_.startsWith("#")))
           Right(JoinChannels(channels.split(",").toSeq))
