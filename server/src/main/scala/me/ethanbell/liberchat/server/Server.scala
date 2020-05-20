@@ -42,6 +42,8 @@ case class Server(actorResponseSource: Source[Response, NotUsed])(
       Response.ERR_NEEDMOREPARAMS(commandName)
     case LexError.TooFewResponseParams(responseCode, args, expectedArity) =>
       Response.ERR_NEEDMOREPARAMS(responseCode.toString) // TODO should probably? be response-related
+    case LexError.GenericResponseError(response) =>
+      response
   }
 
   def handleMessages: Flow[Message, Response, NotUsed] = Flow[Message]

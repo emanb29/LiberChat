@@ -25,12 +25,12 @@ case object Command {
       case ("NICK", Nil)       => Left(TooFewCommandParams(commandName, args, 1))
       case ("USER", username :: hostname :: servername :: realname :: _) =>
         Right(User(username, hostname, servername, realname))
-      case ("USER", _)   => Left(TooFewCommandParams(commandName, args, 4))
-      case ("JOIN", "0") => Right(LeaveAll)
+      case ("USER", _)          => Left(TooFewCommandParams(commandName, args, 4))
+      case ("JOIN", "0" :: Nil) => Right(LeaveAll)
       case ("JOIN", channels :: _ /*keys*/ :: _) =>
         val chans = channels.split(",")
         if (chans.forall(_.startsWith("#")))
-          Right(JoinChannels(channels.split(",")))
+          Right(JoinChannels(channels.split(",").toSeq))
         else
           Left(GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get)))
       case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 2))
