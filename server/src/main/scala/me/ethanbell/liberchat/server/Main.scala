@@ -2,13 +2,13 @@ package me.ethanbell.liberchat.server
 import java.util.concurrent.TimeUnit
 
 import akka.actor.typed._
+import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.scaladsl.{Source, Tcp}
-import akka.stream.{ActorAttributes, OverflowStrategy, Supervision}
+import akka.stream.{ActorAttributes, OverflowStrategy}
 import akka.util.Timeout
-import me.ethanbell.liberchat.Response
 import me.ethanbell.liberchat.server.SessionActor.Shutdown
-import akka.actor.typed.scaladsl.AskPattern._
+import me.ethanbell.liberchat.{AkkaUtil, Response}
 
 import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters._
@@ -27,11 +27,6 @@ case object Main extends App {
   val userRegistryFut = system.ask[ActorRef[UserRegistry.Command]](
     SpawnProtocol.Spawn(UserRegistry(), UserRegistry.ACTOR_NAME, Props.empty, _)
   )
-
-  val chattySupervisor: Supervision.Decider = { err =>
-    system.log.error("Unhandled exception in stream", err)
-    Supervision.Stop
-  }
 
   private val env = System.getenv().asScala
   val host        = env.getOrElse("HOST", "0.0.0.0")
@@ -64,7 +59,7 @@ case object Main extends App {
     val (termination, killSwitch) =
       conn.handleWith(
         Server(actorResponseSource).flow
-          .withAttributes(ActorAttributes.supervisionStrategy(chattySupervisor))
+          .withAttributes(ActorAttributes.supervisionStrategy(AkkaUtil.chattySupervisor))
       )
     termination.onComplete { _ =>
       system.log.debug(s"Disconnecting ${conn.remoteAddress}")

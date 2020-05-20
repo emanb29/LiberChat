@@ -12,6 +12,7 @@ val akkaV         = "2.6.5"
 val fastParseV    = "2.2.2"
 val logbackV      = "1.2.3"
 val scalaLoggingV = "3.9.2"
+val korolevV      = "0.15.0"
 
 lazy val commonSettings = List(
   scalacOptions ++= Seq(
@@ -29,6 +30,8 @@ lazy val commonSettings = List(
         "-Yrangepos"
       ),
   libraryDependencies ++= Seq(
+        "com.github.fomkin"          %% "korolev"           % korolevV,
+        "com.github.fomkin"          %% "korolev-akka"      % korolevV,
         "com.typesafe.akka"          %% "akka-actor-typed"  % akkaV,
         "com.typesafe.akka"          %% "akka-stream-typed" % akkaV,
         "com.typesafe.akka"          %% "akka-stream"       % akkaStreamsV,

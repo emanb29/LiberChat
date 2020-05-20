@@ -1,10 +1,16 @@
 package me.ethanbell.liberchat
 
 import akka.NotUsed
-import akka.actor.typed.ActorRef
-import akka.stream.FlowShape
+import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.stream.{FlowShape, Supervision}
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Partition}
 object AkkaUtil {
+
+  def chattySupervisor(implicit system: ActorSystem[_]): Supervision.Decider = { err =>
+    system.log.error("Unhandled exception in stream", err)
+    Supervision.Stop
+  }
+
   trait Replyable {
     type T
     val replyTo: ActorRef[T]

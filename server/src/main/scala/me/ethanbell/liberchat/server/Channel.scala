@@ -19,6 +19,8 @@ final case class Channel(ctx: ActorContext[Channel.Command], name: IRCString)
     extends AbstractBehavior[Channel.Command](ctx) {
   val users: mutable.Set[ActorRef[SessionActor.Command]] = mutable.Set.empty
   override def onMessage(msg: Channel.Command): Behavior[Channel.Command] = msg match {
-    case Channel.Join(client) => users.foreach(u => u.tell(???))
+    case Channel.Join(client) =>
+      users.foreach(u => u.tell(???)) // TODO
+      this
   }
 }

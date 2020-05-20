@@ -4,14 +4,13 @@ import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.server.SessionActor.{HandleIRCMessage, ReserveNickCallback}
-import me.ethanbell.liberchat.server.UserRegistry.Command
 import me.ethanbell.liberchat.{CommandMessage, IRCString, Response, Command => IRCCommand}
 
 object SessionActor {
   sealed trait Command
-  final case object NoOp                                          extends Command
-  final case object Shutdown                                      extends Command
-  final case class HandleIRCMessage(cm: CommandMessage)           extends Command
+  final case object NoOp                                extends Command
+  final case object Shutdown                            extends Command
+  final case class HandleIRCMessage(cm: CommandMessage) extends Command
 
   /**
    * The result of attempting to reserve a nick
