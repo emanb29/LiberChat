@@ -1,6 +1,7 @@
 package me.ethanbell.liberchat
 
 import java.util.Date
+import IRCString._
 
 sealed trait Response extends CommandLike {
 
@@ -25,9 +26,9 @@ case object Response {
       case (1, welcomeStr :: _) => Right(RPL_WELCOME(welcomeStr))
       case (1, Nil)             => Right(RPL_WELCOME("")) // we'll assume an empty string is valid
       case (2, hostStr :: _)    => Right(RPL_YOURHOST(hostStr))
-      case (2, Nil)             => Right(RPL_YOURHOST("")) // we'll assume an empty string is valid
+      case (2, Nil)             => Right(RPL_YOURHOST("")) // we'll again assume an empty string is valid
       case (3, createdStr :: _) => Right(RPL_CREATED(createdStr))
-      case (3, Nil)             => Right(RPL_CREATED("")) // we'll assume an empty string is valid
+      case (3, Nil)             => Right(RPL_CREATED("")) // we'll yet again assume an empty string is valid
       case (4, server :: version :: userModes :: chanModes :: _) =>
         Right(RPL_MYINFO(server, version, userModes.toSet, chanModes.toSet))
       case (5, _)                  => Left(TooFewResponseParams(code, args, 4))
@@ -35,6 +36,9 @@ case object Response {
       case (403, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (421, commandName :: _) => Right(ERR_UNKNOWNCOMMAND(commandName))
       case (421, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (433, nick :: _)        => Right(ERR_NICKNAMEINUSE(nick.irc))
+      case (433, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (451, _)                => Right(ERR_NOTREGISTERED)
       case (461, commandName :: _) => Right(ERR_NEEDMOREPARAMS(commandName))
       case (461, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case _                       => Left(UnknownResponseCode(code, args))
@@ -83,6 +87,14 @@ case object Response {
   case class ERR_UNKNOWNCOMMAND(commandName: String) extends Response {
     val code = 421
     val args = Seq(commandName, "Unknown command")
+  }
+  case class ERR_NICKNAMEINUSE(nick: IRCString) extends Response {
+    val code = 433
+    val args = Seq(nick.str, "Nickname is already in use")
+  }
+  case object ERR_NOTREGISTERED extends Response {
+    val code = 451
+    val args = Seq("You have not registered")
   }
   case class ERR_NEEDMOREPARAMS(commandName: String) extends Response {
     val code = 461

@@ -90,7 +90,7 @@ final case class SessionActor(
             initState.realname = Some(realname)
           case _ =>
             ctx.log.info("User sent non-init related message during init phase")
-            responseQueue.offer(???) // TODO error session needs to be established
+            responseQueue.offer(Response.ERR_NOTREGISTERED)
         }
         // If the message might be relevant to auth, change the initialization state
         if (initState.isComplete) movetoMainPhase()
@@ -103,7 +103,7 @@ final case class SessionActor(
         if (initState.isComplete) movetoMainPhase()
       case ReserveNickCallback(nick, false) =>
         ctx.log.info(s"User at ${ctx.self} requested nick $nick, but that nick was taken")
-        responseQueue.offer(???) // TODO error nick taken
+        responseQueue.offer(Response.ERR_NICKNAMEINUSE(nick))
       // Any other IRC message is invalid at this stage (PASS notwithstanding)
     }: PartialFunction[SessionActor.Command, Unit]).andThen(_ => this)
   }
