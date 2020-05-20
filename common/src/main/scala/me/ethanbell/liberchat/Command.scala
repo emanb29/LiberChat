@@ -25,7 +25,15 @@ case object Command {
       case ("NICK", Nil)       => Left(TooFewCommandParams(commandName, args, 1))
       case ("USER", username :: hostname :: servername :: realname :: _) =>
         Right(User(username, hostname, servername, realname))
-      case ("USER", _) => Left(TooFewCommandParams(commandName, args, 4))
+      case ("USER", _)   => Left(TooFewCommandParams(commandName, args, 4))
+      case ("JOIN", "0") => Right(LeaveAll)
+      case ("JOIN", channels :: _ /*keys*/ :: _) =>
+        val chans = channels.split(",")
+        if (chans.forall(_.startsWith("#")))
+          Right(JoinChannels(channels.split(",")))
+        else
+          Left(GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get)))
+      case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 2))
       case ("SERVER", servername :: hopcount :: info :: _) if hopcount.toIntOption.isDefined =>
         Right(Server(servername, hopcount.toInt, info))
       case ("SERVER", _)                     => Left(TooFewCommandParams(commandName, args, 3))
@@ -63,6 +71,16 @@ case object Command {
     override def name: String = "USER"
 
     override def args: Seq[String] = List(username, hostname, servername, realname)
+  }
+
+  sealed trait Join extends Command {
+    override def name: String = "JOIN"
+  }
+  final case object LeaveAll extends Join {
+    override def args: Seq[String] = Seq("0")
+  }
+  final case class JoinChannels(channels: Seq[String]) extends Join { // TODO add keys support
+    override def args: Seq[String] = Seq(channels.mkString(","))
   }
 
   /**

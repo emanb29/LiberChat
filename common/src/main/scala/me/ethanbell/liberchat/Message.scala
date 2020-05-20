@@ -24,6 +24,13 @@ case class ResponseMessage(override val prefix: Option[String], response: Respon
 
 object Message extends LazyLogging {
   sealed trait LexError extends Exception
+
+  /**
+   * Lex errors with a natural response associated with them
+   */
+  sealed trait KnownResponse {
+    def response: Response
+  }
   object LexError {
     case object Impossible extends LexError
 
@@ -32,7 +39,11 @@ object Message extends LazyLogging {
      * @param commandName
      * @param args
      */
-    case class UnknownCommand(commandName: String, args: Seq[String]) extends LexError
+    case class UnknownCommand(commandName: String, args: Seq[String])
+        extends LexError
+        with KnownResponse {
+      def response: Response = Response.ERR_UNKNOWNCOMMAND(commandName)
+    }
 
     /**
      * The command was recognized, but there were not enough valid parameters for the command
@@ -43,6 +54,9 @@ object Message extends LazyLogging {
      */
     case class TooFewCommandParams(commandName: String, args: Seq[String], expectedArity: Int)
         extends LexError
+        with KnownResponse {
+      def response: Response = Response.ERR_NEEDMOREPARAMS(commandName)
+    }
 
     /**
      * The response code of the message was not recognized
@@ -59,6 +73,12 @@ object Message extends LazyLogging {
      */
     case class TooFewResponseParams(responseCode: Int, args: Seq[String], expectedArity: Int)
         extends LexError
+
+    /**
+     * An error with a prescribed response.
+     * @param response A strong suggestion for what the response yielded by this error should be
+     */
+    case class GenericResponseError(response: Response) extends LexError with KnownResponse
   }
 
   /**

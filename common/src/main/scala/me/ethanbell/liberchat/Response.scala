@@ -31,10 +31,12 @@ case object Response {
       case (4, server :: version :: userModes :: chanModes :: _) =>
         Right(RPL_MYINFO(server, version, userModes.toSet, chanModes.toSet))
       case (5, _)                  => Left(TooFewResponseParams(code, args, 4))
-      case (461, commandName :: _) => Right(ERR_NEEDMOREPARAMS(commandName))
-      case (461, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (403, channelName :: _) => Right(ERR_NOSUCHCHANNEL(channelName))
+      case (403, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (421, commandName :: _) => Right(ERR_UNKNOWNCOMMAND(commandName))
       case (421, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (461, commandName :: _) => Right(ERR_NEEDMOREPARAMS(commandName))
+      case (461, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case _                       => Left(UnknownResponseCode(code, args))
     }
 
@@ -74,12 +76,16 @@ case object Response {
     val code = 4
     val args = Seq(servername, versionStr, userModes.mkString, chanModes.mkString)
   }
-  case class ERR_NEEDMOREPARAMS(commandName: String) extends Response {
-    val code = 461
-    val args = Seq(commandName, "Not enough parameters")
+  case class ERR_NOSUCHCHANNEL(channelName: String) extends Response {
+    val code = 403
+    val args = Seq(channelName, "No such channel")
   }
   case class ERR_UNKNOWNCOMMAND(commandName: String) extends Response {
     val code = 421
     val args = Seq(commandName, "Unknown command")
+  }
+  case class ERR_NEEDMOREPARAMS(commandName: String) extends Response {
+    val code = 461
+    val args = Seq(commandName, "Not enough parameters")
   }
 }
