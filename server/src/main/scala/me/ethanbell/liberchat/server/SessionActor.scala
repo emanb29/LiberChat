@@ -4,13 +4,14 @@ import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.server.SessionActor.{HandleIRCMessage, ReserveNickCallback}
+import me.ethanbell.liberchat.server.UserRegistry.Command
 import me.ethanbell.liberchat.{CommandMessage, IRCString, Response, Command => IRCCommand}
 
 object SessionActor {
   sealed trait Command
-  final case object NoOp                                extends Command
-  final case object Shutdown                            extends Command
-  final case class HandleIRCMessage(cm: CommandMessage) extends Command
+  final case object NoOp                                          extends Command
+  final case object Shutdown                                      extends Command
+  final case class HandleIRCMessage(cm: CommandMessage)           extends Command
 
   /**
    * The result of attempting to reserve a nick
@@ -21,7 +22,7 @@ object SessionActor {
 
   def apply(
     responseQueue: SourceQueueWithComplete[Response],
-    userRegistry: ActorRef[UserRegistryActor.Command]
+    userRegistry: ActorRef[UserRegistry.Command]
   ): Behavior[SessionActor.Command] =
     Behaviors.setup { ctx =>
       ctx.log.debug("Creating a new SessionActor")
@@ -38,7 +39,7 @@ object SessionActor {
 final case class SessionActor(
   ctx: ActorContext[SessionActor.Command],
   responseQueue: SourceQueueWithComplete[Response],
-  userRegistry: ActorRef[UserRegistryActor.Command]
+  userRegistry: ActorRef[UserRegistry.Command]
 ) extends AbstractBehavior[SessionActor.Command](ctx) {
   private type MessageHandler =
     PartialFunction[SessionActor.Command, Behavior[SessionActor.Command]]
@@ -81,7 +82,7 @@ final case class SessionActor(
       case SessionActor.HandleIRCMessage(commandMsg) =>
         commandMsg.command match {
           case IRCCommand.Nick(nick, _) =>
-            userRegistry.tell(UserRegistryActor.ReserveNick(nick, ctx.self))
+            userRegistry.tell(UserRegistry.ReserveNick(nick, ctx.self))
           case IRCCommand.User(username, hostname, servername, realname) =>
             initState.username = Some(username)
             initState.hostname = Some(hostname)
@@ -97,7 +98,7 @@ final case class SessionActor(
       // For the above behavior, if we got a Nick command, then asked the client registry if the nick was free
       case ReserveNickCallback(nick, true) =>
         initState.nick.foreach { oldNick =>
-          userRegistry.tell(UserRegistryActor.FreeNick(oldNick))
+          userRegistry.tell(UserRegistry.FreeNick(oldNick))
         }
         initState.nick = Some(nick)
         if (initState.isComplete) movetoMainPhase()
@@ -113,7 +114,7 @@ final case class SessionActor(
         case SessionActor.Shutdown =>
           ctx.log.debug(s"Shutting down $this")
           // Free external allocations
-          initState.nick.foreach(nick => userRegistry.tell(UserRegistryActor.FreeNick(nick)))
+          initState.nick.foreach(nick => userRegistry.tell(UserRegistry.FreeNick(nick)))
           Behaviors.stopped
         case SessionActor.NoOp => this
         case c @ _ =>

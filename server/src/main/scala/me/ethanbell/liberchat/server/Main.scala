@@ -24,8 +24,8 @@ case object Main extends App {
     ActorSystem(IRCActorSystem(), "irc-server")
   implicit val timeout: Timeout = Timeout(2, TimeUnit.SECONDS)
 
-  val userRegistryFut = system.ask[ActorRef[UserRegistryActor.Command]](
-    SpawnProtocol.Spawn(UserRegistryActor(), UserRegistryActor.ACTOR_NAME, Props.empty, _)
+  val userRegistryFut = system.ask[ActorRef[UserRegistry.Command]](
+    SpawnProtocol.Spawn(UserRegistry(), UserRegistry.ACTOR_NAME, Props.empty, _)
   )
 
   val chattySupervisor: Supervision.Decider = { err =>

@@ -1,4 +1,5 @@
 package me.ethanbell.liberchat
+import IRCString._
 
 protected[liberchat] trait CommandLike {
   def name: String
@@ -30,7 +31,7 @@ case object Command {
       case ("JOIN", channels :: _) => // TODO add a keyed variant
         val chans = channels.split(",")
         if (chans.forall(_.startsWith("#")))
-          Right(JoinChannels(channels.split(",").toSeq))
+          Right(JoinChannels(channels.split(",").toSeq.map(_.irc)))
         else
           Left(GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get)))
       case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 2))
@@ -79,8 +80,8 @@ case object Command {
   final case object LeaveAll extends Join {
     override def args: Seq[String] = Seq("0")
   }
-  final case class JoinChannels(channels: Seq[String]) extends Join { // TODO add keys support
-    override def args: Seq[String] = Seq(channels.mkString(","))
+  final case class JoinChannels(channels: Seq[IRCString]) extends Join { // TODO add keys support
+    override def args: Seq[String] = Seq(channels.map(_.str).mkString(","))
   }
 
   /**

@@ -7,31 +7,31 @@ import me.ethanbell.liberchat.server.SessionActor.ReserveNickCallback
 
 import scala.collection.mutable
 
-object UserRegistryActor {
+object UserRegistry {
   final val ACTOR_NAME = "user-registry"
   sealed trait Command
   final case class ReserveNick(nick: IRCString, who: ActorRef[SessionActor.Command]) extends Command
   final case class FreeNick(nick: IRCString)                                         extends Command
 
-  def apply(): Behavior[UserRegistryActor.Command] = Behaviors.setup { ctx =>
+  def apply(): Behavior[UserRegistry.Command] = Behaviors.setup { ctx =>
     ctx.log.info("Initializing user registry")
-    UserRegistryActor(ctx)
+    UserRegistry(ctx)
   }
 }
-final case class UserRegistryActor(ctx: ActorContext[UserRegistryActor.Command])
-    extends AbstractBehavior[UserRegistryActor.Command](ctx) {
+final case class UserRegistry(ctx: ActorContext[UserRegistry.Command])
+    extends AbstractBehavior[UserRegistry.Command](ctx) {
 
   val clients: mutable.Map[IRCString, ActorRef[SessionActor.Command]] = mutable.Map.empty
 
-  override def onMessage(msg: UserRegistryActor.Command): Behavior[UserRegistryActor.Command] = {
+  override def onMessage(msg: UserRegistry.Command): Behavior[UserRegistry.Command] = {
     msg match {
-      case UserRegistryActor.ReserveNick(nick, who) if clients.contains(nick) =>
+      case UserRegistry.ReserveNick(nick, who) if clients.contains(nick) =>
         who.tell(SessionActor.ReserveNickCallback(nick, success = false))
-      case UserRegistryActor.ReserveNick(nick, who) if !clients.contains(nick) =>
+      case UserRegistry.ReserveNick(nick, who) if !clients.contains(nick) =>
         ctx.log.debug(s"$nick reserved for $who")
         clients += (nick -> who)
         who.tell(ReserveNickCallback(nick, success = true))
-      case UserRegistryActor.FreeNick(nick) =>
+      case UserRegistry.FreeNick(nick) =>
         clients.remove(nick)
     }
     this
