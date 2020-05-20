@@ -35,8 +35,6 @@ case class IRCString(str: String) {
     super.equals(obj) ||
       (obj.isInstanceOf[IRCString] && caseInsensitiveCompare(obj.asInstanceOf[IRCString]))
 
-  override def hashCode(): Int =
-    if (this.str == this.toUpper.str) super.hashCode()
-    else this.toUpper.hashCode()
+  override def hashCode(): Int = this.toUpper.str.hashCode
 
 }

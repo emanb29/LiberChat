@@ -28,9 +28,11 @@ final case class UserRegistryActor(ctx: ActorContext[UserRegistryActor.Command])
       case UserRegistryActor.ReserveNick(nick, who) if clients.contains(nick) =>
         who.tell(SessionActor.ReserveNickCallback(nick, success = false))
       case UserRegistryActor.ReserveNick(nick, who) if !clients.contains(nick) =>
+        ctx.log.debug(s"$nick reserved for $who")
         clients += (nick -> who)
         who.tell(ReserveNickCallback(nick, success = true))
-      case UserRegistryActor.FreeNick(nick) => clients.remove(nick)
+      case UserRegistryActor.FreeNick(nick) =>
+        clients.remove(nick)
     }
     this
   }

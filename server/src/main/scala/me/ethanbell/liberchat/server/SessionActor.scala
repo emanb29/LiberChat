@@ -81,13 +81,13 @@ final case class SessionActor(
       case SessionActor.HandleIRCMessage(commandMsg) =>
         commandMsg.command match {
           case IRCCommand.Nick(nick, _) =>
-            // TODO attempt to reserve nick. For now, we just pretend every nick is free
-            ctx.self.tell(ReserveNickCallback(nick, success = true))
+            userRegistry.tell(UserRegistryActor.ReserveNick(nick, ctx.self))
           case IRCCommand.User(username, hostname, servername, realname) =>
             initState.username = Some(username)
             initState.hostname = Some(hostname)
             initState.servername = Some(servername)
             initState.realname = Some(realname)
+          // Any other IRC message is invalid at this stage (PASS notwithstanding)
           case _ =>
             ctx.log.info("User sent non-init related message during init phase")
             responseQueue.offer(Response.ERR_NOTREGISTERED)
@@ -104,7 +104,6 @@ final case class SessionActor(
       case ReserveNickCallback(nick, false) =>
         ctx.log.info(s"User at ${ctx.self} requested nick $nick, but that nick was taken")
         responseQueue.offer(Response.ERR_NICKNAMEINUSE(nick))
-      // Any other IRC message is invalid at this stage (PASS notwithstanding)
     }: PartialFunction[SessionActor.Command, Unit]).andThen(_ => this)
   }
 
