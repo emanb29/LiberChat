@@ -54,7 +54,6 @@ lazy val commonSettings = List(
   scalafmtOnCompile := true
 )
 lazy val common = (project in file("common/")).settings(commonSettings)
-lazy val client = (project in file("client/")).settings(commonSettings).dependsOn(common)
 lazy val server = (project in file("server/")).settings(commonSettings).dependsOn(common)
 
 Global / onLoad ~= (_ andThen ("project server" :: _))
