@@ -8,7 +8,7 @@ import scala.collection.mutable
 
 object Channel {
   sealed trait Command
-  final case class Join(client: ActorRef[SessionActor]) extends Command
+  final case class Join(newUserPrefix: Client.Prefix, who: ActorRef[Client.Command]) extends Command
 
   def apply(name: IRCString): Behavior[Command] = Behaviors.setup { ctx =>
     ctx.log.info("Initializing user registry")
@@ -17,8 +17,10 @@ object Channel {
 }
 final case class Channel(ctx: ActorContext[Channel.Command], name: IRCString)
     extends AbstractBehavior[Channel.Command](ctx) {
-  val users: mutable.Set[ActorRef[SessionActor.Command]] = mutable.Set.empty
+  val users: mutable.Set[ActorRef[Client.Command]] = mutable.Set.empty
   override def onMessage(msg: Channel.Command): Behavior[Channel.Command] = msg match {
-    case Channel.Join(client) => users.foreach(u => u.tell(???))
+    case Channel.Join(prefix, who) =>
+      (users += who).foreach(u => u.tell(Client.NotifyJoin(prefix, this.name)))
+      this
   }
 }

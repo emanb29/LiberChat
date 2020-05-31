@@ -25,13 +25,13 @@ class IRCTest extends AnyFunSuite {
     val firstEither :: secondEither :: Nil = parsed
     firstEither match {
       case Right(CommandMessage(_, Nick(nick, hopcount))) =>
-        assert(nick.caseInsensitiveCompare("emanb29".irc))
+        assert(nick === "emanb29".irc)
         assert(hopcount === None)
       case _ =>
     }
     secondEither match {
       case Right(CommandMessage(_, Nick(nick, hopcount))) =>
-        assert(nick.caseInsensitiveCompare("ethan".irc))
+        assert(nick === "ethan".irc)
         assert(hopcount === Some(2))
       case _ =>
         fail(s"Expected a Right(CommandMessage(_, Nick)) but got $firstEither")
@@ -51,13 +51,13 @@ class IRCTest extends AnyFunSuite {
     val firstEither :: secondEither :: Nil = parsed
     firstEither match {
       case Right(CommandMessage(_, Nick(nick, hopcount))) =>
-        assert(nick.caseInsensitiveCompare("emanb29".irc))
+        assert(nick === "emanb29".irc)
         assert(hopcount === None)
       case _ =>
     }
     secondEither match {
       case Right(CommandMessage(_, Nick(nick, hopcount))) =>
-        assert(nick.caseInsensitiveCompare("ethan".irc))
+        assert(nick === "ethan".irc)
         assert(hopcount === Some(2))
       case _ =>
         fail(s"Expected a Right(CommandMessage(_, Nick)) but got $firstEither")
@@ -78,13 +78,13 @@ class IRCTest extends AnyFunSuite {
     val firstEither :: secondEither :: Nil = parsed
     firstEither match {
       case Right(CommandMessage(_, Nick(nick, hopcount))) =>
-        assert(nick.caseInsensitiveCompare("emanb29".irc))
+        assert(nick === "emanb29".irc)
         assert(hopcount === None)
       case _ =>
     }
     secondEither match {
       case Right(CommandMessage(_, Nick(nick, hopcount))) =>
-        assert(nick.caseInsensitiveCompare("ethan".irc))
+        assert(nick === "ethan".irc)
         assert(hopcount === Some(2))
       case _ =>
         fail(s"Expected a Right(CommandMessage(_, Nick)) but got $firstEither")

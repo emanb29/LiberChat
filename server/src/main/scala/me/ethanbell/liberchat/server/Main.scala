@@ -2,13 +2,13 @@ package me.ethanbell.liberchat.server
 import java.util.concurrent.TimeUnit
 
 import akka.actor.typed._
+import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.scaladsl.{Source, Tcp}
 import akka.stream.{ActorAttributes, OverflowStrategy, Supervision}
 import akka.util.Timeout
-import me.ethanbell.liberchat.Response
-import me.ethanbell.liberchat.server.SessionActor.Shutdown
-import akka.actor.typed.scaladsl.AskPattern._
+import me.ethanbell.liberchat.Message
+import me.ethanbell.liberchat.server.Client.Shutdown
 
 import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters._
@@ -43,14 +43,14 @@ case object Main extends App {
     implicit val ec = system.executionContext
 
     val (actorResponseQueue, actorResponseSource) =
-      Source.queue[Response](20, OverflowStrategy.backpressure).preMaterialize()
+      Source.queue[Message](20, OverflowStrategy.backpressure).preMaterialize()
 
-    val sessionActorFut: Future[ActorRef[SessionActor.Command]] = for {
+    val sessionActorFut: Future[ActorRef[Client.Command]] = for {
       userRegistry <- userRegistryFut
       sessionActor <- system
-        .ask[ActorRef[SessionActor.Command]](
+        .ask[ActorRef[Client.Command]](
           SpawnProtocol.Spawn(
-            SessionActor(actorResponseQueue, userRegistry),
+            Client(actorResponseQueue, userRegistry),
             conn.remoteAddress.getHostName.filter(_.isLetter),
             Props.empty,
             _
@@ -58,7 +58,7 @@ case object Main extends App {
         )
     } yield sessionActor
 
-    implicit val sessionActor: ActorRef[SessionActor.Command] =
+    implicit val sessionActor: ActorRef[Client.Command] =
       Await.result(sessionActorFut, timeout.duration)
 
     val (termination, killSwitch) =

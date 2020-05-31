@@ -3,15 +3,46 @@ package me.ethanbell.liberchat.server
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
-import me.ethanbell.liberchat.server.SessionActor.{HandleIRCMessage, ReserveNickCallback}
-import me.ethanbell.liberchat.server.UserRegistry.Command
-import me.ethanbell.liberchat.{CommandMessage, IRCString, Response, Command => IRCCommand}
+import me.ethanbell.liberchat.server.Client.{
+  HandleIRCMessage,
+  NotifyJoin,
+  NotifyMessage,
+  ReserveNickCallback
+}
+import me.ethanbell.liberchat.{
+  CommandMessage,
+  IRCString,
+  Message,
+  Response,
+  ResponseMessage,
+  Command => IRCCommand
+}
 
-object SessionActor {
+object Client {
   sealed trait Command
-  final case object NoOp                                          extends Command
-  final case object Shutdown                                      extends Command
-  final case class HandleIRCMessage(cm: CommandMessage)           extends Command
+  final case object NoOp                                extends Command
+  final case object Shutdown                            extends Command
+  final case class HandleIRCMessage(cm: CommandMessage) extends Command
+
+  /**
+   * Notify the client of a new join in a channel they are in. This also serves as a callback to joining a channel
+   * @param newUserPrefix The prefix cooresponding to the user who joined
+   * @param channel The channel the new user joined
+   */
+  final case class NotifyJoin(newUserPrefix: Prefix, channel: IRCString) extends Command
+
+  /**
+   * Notify the client of a new message
+   * @param sourcePrefix The prefix cooresponding to the user who wrote the message
+   * @param msgSource The channel or private message channel from which the message originated. If this is the user's own nick, this was a private message
+   * @param msg The message itself
+   */
+  final case class NotifyMessage(sourcePrefix: Prefix, msgSource: IRCString, msg: String)
+      extends Command
+
+  final case class Prefix(nick: IRCString, username: String, hostname: String) {
+    override def toString: String = s"$nick!$username@$hostname"
+  }
 
   /**
    * The result of attempting to reserve a nick
@@ -21,12 +52,12 @@ object SessionActor {
   final case class ReserveNickCallback(nick: IRCString, success: Boolean) extends Command
 
   def apply(
-    responseQueue: SourceQueueWithComplete[Response],
+    responseQueue: SourceQueueWithComplete[Message],
     userRegistry: ActorRef[UserRegistry.Command]
-  ): Behavior[SessionActor.Command] =
+  ): Behavior[Client.Command] =
     Behaviors.setup { ctx =>
       ctx.log.debug("Creating a new SessionActor")
-      SessionActor(ctx, responseQueue, userRegistry)
+      Client(ctx, responseQueue, userRegistry)
     }
 }
 
@@ -36,19 +67,37 @@ object SessionActor {
  * @param ctx
  * @param responseQueue
  */
-final case class SessionActor(
-  ctx: ActorContext[SessionActor.Command],
-  responseQueue: SourceQueueWithComplete[Response],
+final case class Client(
+  ctx: ActorContext[Client.Command],
+  responseQueue: SourceQueueWithComplete[Message],
   userRegistry: ActorRef[UserRegistry.Command]
-) extends AbstractBehavior[SessionActor.Command](ctx) {
+) extends AbstractBehavior[Client.Command](ctx) {
   private type MessageHandler =
-    PartialFunction[SessionActor.Command, Behavior[SessionActor.Command]]
+    PartialFunction[Client.Command, Behavior[Client.Command]]
   var currentMessageHandler: MessageHandler = onMessageDuringInit
 
+  /**
+   * During this phase, [[initState.isComplete]] _must_ return true
+   */
   private lazy val onMessageMain: MessageHandler = {
-    case HandleIRCMessage(cm) =>
-      ctx.log.info(s"In main phase, got IRC message $cm")
-      this
+//    val prefix: Client.Prefix =
+//      Client.Prefix(initState.nick.get, initState.username.get, initState.hostname.get)
+
+    ({
+      case HandleIRCMessage(cm) =>
+        ctx.log.info(s"In main phase, got IRC message $cm")
+        this
+      case NotifyJoin(newUserPrefix, channel) =>
+        responseQueue.offer(
+          CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channel)))
+        )
+        this
+      case NotifyMessage(sourcePrefix, msgSource, msg) =>
+        responseQueue.offer(
+          CommandMessage(Some(sourcePrefix.toString), ???) // TODO pending PrivMsg AST
+        )
+        this
+    })
   }
 
   case class InitState(
@@ -74,12 +123,15 @@ final case class SessionActor(
       currentMessageHandler = onMessageMain
       assert(initState.isComplete)
       responseQueue.offer(
-        Response.RPL_WELCOME(initState.nick.get, initState.username.get, initState.hostname.get)
+        ResponseMessage(
+          None,
+          Response.RPL_WELCOME(initState.nick.get, initState.username.get, initState.hostname.get)
+        )
       )
     }
 
     ({
-      case SessionActor.HandleIRCMessage(commandMsg) =>
+      case Client.HandleIRCMessage(commandMsg) =>
         commandMsg.command match {
           case IRCCommand.Nick(nick, _) =>
             userRegistry.tell(UserRegistry.ReserveNick(nick, ctx.self))
@@ -91,7 +143,12 @@ final case class SessionActor(
           // Any other IRC message is invalid at this stage (PASS notwithstanding)
           case _ =>
             ctx.log.info("User sent non-init related message during init phase")
-            responseQueue.offer(Response.ERR_NOTREGISTERED)
+            responseQueue.offer(
+              ResponseMessage(
+                None,
+                Response.ERR_NOTREGISTERED
+              )
+            )
         }
         // If the message might be relevant to auth, change the initialization state
         if (initState.isComplete) movetoMainPhase()
@@ -104,19 +161,24 @@ final case class SessionActor(
         if (initState.isComplete) movetoMainPhase()
       case ReserveNickCallback(nick, false) =>
         ctx.log.info(s"User at ${ctx.self} requested nick $nick, but that nick was taken")
-        responseQueue.offer(Response.ERR_NICKNAMEINUSE(nick))
-    }: PartialFunction[SessionActor.Command, Unit]).andThen(_ => this)
+        responseQueue.offer(
+          ResponseMessage(
+            None,
+            Response.ERR_NICKNAMEINUSE(nick)
+          )
+        )
+    }: PartialFunction[Client.Command, Unit]).andThen(_ => this)
   }
 
-  override def onMessage(msg: SessionActor.Command): Behavior[SessionActor.Command] =
-    currentMessageHandler.applyOrElse[SessionActor.Command, Behavior[SessionActor.Command]](
+  override def onMessage(msg: Client.Command): Behavior[Client.Command] =
+    currentMessageHandler.applyOrElse[Client.Command, Behavior[Client.Command]](
       msg, { // use the current message handler, or fall back to global behaviors
-        case SessionActor.Shutdown =>
+        case Client.Shutdown =>
           ctx.log.debug(s"Shutting down $this")
           // Free external allocations
           initState.nick.foreach(nick => userRegistry.tell(UserRegistry.FreeNick(nick)))
           Behaviors.stopped
-        case SessionActor.NoOp => this
+        case Client.NoOp => this
         case c @ _ =>
           ctx.log.error(s"Unexpected unhandled command message $c at ${this}")
           Behaviors.unhandled

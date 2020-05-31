@@ -13,8 +13,7 @@ sealed trait Message {
     prefix.fold("")(':' +: _ :+ ' ') ++ commandLike.serialize
 }
 
-case class CommandMessage(nickname: Option[String] = None, command: Command) extends Message {
-  override def prefix: Option[String]   = nickname
+case class CommandMessage(override val prefix: Option[String], command: Command) extends Message {
   override def commandLike: CommandLike = command
 }
 case class ResponseMessage(override val prefix: Option[String], response: Response)

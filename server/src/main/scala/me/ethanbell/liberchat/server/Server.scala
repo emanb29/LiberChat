@@ -15,8 +15,8 @@ import me.ethanbell.liberchat._
 
 import scala.concurrent.Future
 
-case class Server(actorResponseSource: Source[Response, NotUsed])(
-  implicit sessionActor: ActorRef[SessionActor.Command]
+case class Server(actorResponseSource: Source[Message, NotUsed])(
+  implicit sessionActor: ActorRef[Client.Command]
 ) {
   private val UTF8 = Charset.forName("UTF-8")
   def flow: Flow[ByteString, ByteString, (Future[Done], KillSwitch)] =
@@ -28,25 +28,27 @@ case class Server(actorResponseSource: Source[Response, NotUsed])(
       .map(_.serialize)
       .map(ByteString(_, UTF8))
 
-  def handleMessageStrings: Flow[String, Response, NotUsed] =
+  def handleMessageStrings: Flow[String, Message, NotUsed] =
     Flow[String]
       .via(IRC.parseMessagesFlow)
       .viaEither(handleParseErrors, handleMessages)
 
-  def handleParseErrors: Flow[LexError, Response, NotUsed] = Flow[LexError].map {
-    case LexError.Impossible                        => ???
-    case LexError.UnknownCommand(commandName, args) => ERR_UNKNOWNCOMMAND(commandName)
-    case LexError.UnknownResponseCode(responseCode, args) =>
-      ERR_UNKNOWNCOMMAND(responseCode.toString) // TODO should be response-related
-    case LexError.TooFewCommandParams(commandName, args, expectedArity) =>
-      Response.ERR_NEEDMOREPARAMS(commandName)
-    case LexError.TooFewResponseParams(responseCode, args, expectedArity) =>
-      Response.ERR_NEEDMOREPARAMS(responseCode.toString) // TODO should probably? be response-related
-    case LexError.GenericResponseError(response) =>
-      response
-  }
+  def handleParseErrors: Flow[LexError, ResponseMessage, NotUsed] = Flow[LexError]
+    .map {
+      case LexError.Impossible                        => ???
+      case LexError.UnknownCommand(commandName, args) => ERR_UNKNOWNCOMMAND(commandName)
+      case LexError.UnknownResponseCode(responseCode, args) =>
+        ERR_UNKNOWNCOMMAND(responseCode.toString) // TODO should be response-related
+      case LexError.TooFewCommandParams(commandName, args, expectedArity) =>
+        Response.ERR_NEEDMOREPARAMS(commandName)
+      case LexError.TooFewResponseParams(responseCode, args, expectedArity) =>
+        Response.ERR_NEEDMOREPARAMS(responseCode.toString) // TODO should probably? be response-related
+      case LexError.GenericResponseError(response) =>
+        response
+    }
+    .map(ResponseMessage(None, _))
 
-  def handleMessages: Flow[Message, Response, NotUsed] = Flow[Message]
+  def handleMessages: Flow[Message, Message, NotUsed] = Flow[Message]
     .map {
       case cm: CommandMessage  => Left(cm)
       case rm: ResponseMessage => Right(rm)
@@ -54,17 +56,17 @@ case class Server(actorResponseSource: Source[Response, NotUsed])(
     .viaEither(
       Flow.fromSinkAndSource(
         Flow[CommandMessage]
-          .map[SessionActor.Command](SessionActor.HandleIRCMessage.apply)
+          .map[Client.Command](Client.HandleIRCMessage.apply)
           .to(
-            ActorSink.actorRef[SessionActor.Command](
+            ActorSink.actorRef[Client.Command](
               sessionActor,
-              SessionActor.NoOp,
-              _ => SessionActor.NoOp
+              Client.NoOp,
+              _ => Client.NoOp
             )
           ),
         actorResponseSource
       ),
-      Flow[ResponseMessage].map(rm => Response.ERR_UNKNOWNCOMMAND(rm.response.name))
+      Flow[ResponseMessage]
     )
 
 }
