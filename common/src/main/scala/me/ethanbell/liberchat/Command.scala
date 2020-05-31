@@ -37,19 +37,21 @@ case object Command {
       case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 2))
       case ("SERVER", servername :: hopcount :: info :: _) if hopcount.toIntOption.isDefined =>
         Right(Server(servername, hopcount.toInt, info))
-      case ("SERVER", _)                     => Left(TooFewCommandParams(commandName, args, 3))
-      case ("OPER", user :: pass :: _)       => Right(Oper(user, pass))
-      case ("OPER", _)                       => Left(TooFewCommandParams(commandName, args, 2))
-      case ("QUIT", Nil)                     => Right(Quit(None))
-      case ("QUIT", message :: _)            => Right(Quit(Some(message)))
-      case ("SQUIT", server :: message :: _) => Right(SQuit(server, message))
-      case ("SQUIT", _)                      => Left(TooFewCommandParams(commandName, args, 2))
-      case _                                 => Left(UnknownCommand(commandName, args))
+      case ("SERVER", _)                          => Left(TooFewCommandParams(commandName, args, 3))
+      case ("OPER", user :: pass :: _)            => Right(Oper(user, pass))
+      case ("OPER", _)                            => Left(TooFewCommandParams(commandName, args, 2))
+      case ("QUIT", Nil)                          => Right(Quit(None))
+      case ("QUIT", message :: _)                 => Right(Quit(Some(message)))
+      case ("SQUIT", server :: message :: _)      => Right(SQuit(server, message))
+      case ("SQUIT", _)                           => Left(TooFewCommandParams(commandName, args, 2))
+      case ("PRIVMSG", targetStr :: message :: _) => Right(PrivMsg(targetStr.irc, message))
+      case ("PRIVMSG", _)                         => Left(TooFewCommandParams(commandName, args, 2))
+      case _                                      => Left(UnknownCommand(commandName, args))
     }
 
   /**
    *
-   * @see https://tools.ietf.org/html/rfc1459#section-4.1.2
+   * @see https://tools.ietf.org/html/rfc2812#section-3.1.2
    * @param nick
    * @param hopcount
    */
@@ -61,7 +63,7 @@ case object Command {
 
   /**
    *
-   * @see https://tools.ietf.org/html/rfc1459#section-4.1.3
+   * @see https://tools.ietf.org/html/rfc2812#section-3.1.3
    * @param username
    * @param hostname
    * @param servername
@@ -74,6 +76,9 @@ case object Command {
     override def args: Seq[String] = List(username, hostname, servername, realname)
   }
 
+  /**
+   * @see https://tools.ietf.org/html/rfc2812#section-3.2.1
+   */
   sealed trait Join extends Command {
     override def name: String = "JOIN"
   }
@@ -85,7 +90,7 @@ case object Command {
   }
 
   /**
-   * @see https://tools.ietf.org/html/rfc1459#section-4.1.4
+   * @see https://tools.ietf.org/html/rfc2813#section-4.1.2
    * @param servername
    * @param hopcount
    * @param info
@@ -97,7 +102,7 @@ case object Command {
   }
 
   /**
-   * @see https://tools.ietf.org/html/rfc1459#section-4.1.5
+   * @see https://tools.ietf.org/html/rfc2812#section-3.1.4
    * @param user
    * @param password
    */
@@ -108,7 +113,7 @@ case object Command {
   }
 
   /**
-   * @see https://tools.ietf.org/html/rfc1459#section-4.1.6
+   * @see https://tools.ietf.org/html/rfc2812#section-3.1.7
    * @param message
    */
   case class Quit(message: Option[String]) extends Command {
@@ -118,7 +123,7 @@ case object Command {
   }
 
   /**
-   * @see https://tools.ietf.org/html/rfc1459#section-4.1.7
+   * @see https://tools.ietf.org/html/rfc2812#section-3.1.8
    * @param server
    * @param comment
    */
@@ -126,5 +131,16 @@ case object Command {
     override def name: String = "SQUIT"
 
     override def args: Seq[String] = List(server, comment)
+  }
+
+  /**
+   * @see https://tools.ietf.org/html/rfc2812#section-3.3.1
+   * @param target
+   * @param message
+   */
+  case class PrivMsg(target: IRCString, message: String) extends Command {
+    override def name: String = "PRIVMSG"
+
+    override def args: Seq[String] = List(target.toString, message)
   }
 }

@@ -3,6 +3,7 @@ package me.ethanbell.liberchat.server
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
+import me.ethanbell.liberchat.Command.PrivMsg
 import me.ethanbell.liberchat.server.Client.{
   HandleIRCMessage,
   NotifyJoin,
@@ -34,10 +35,10 @@ object Client {
   /**
    * Notify the client of a new message
    * @param sourcePrefix The prefix cooresponding to the user who wrote the message
-   * @param msgSource The channel or private message channel from which the message originated. If this is the user's own nick, this was a private message
+   * @param msgTarget The channel or private message channel on which the message was sent. If this is the user's own nick, this was a private message
    * @param msg The message itself
    */
-  final case class NotifyMessage(sourcePrefix: Prefix, msgSource: IRCString, msg: String)
+  final case class NotifyMessage(sourcePrefix: Prefix, msgTarget: IRCString, msg: String)
       extends Command
 
   final case class Prefix(nick: IRCString, username: String, hostname: String) {
@@ -92,9 +93,9 @@ final case class Client(
           CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channel)))
         )
         this
-      case NotifyMessage(sourcePrefix, msgSource, msg) =>
+      case NotifyMessage(sourcePrefix, msgTarget, msg) =>
         responseQueue.offer(
-          CommandMessage(Some(sourcePrefix.toString), ???) // TODO pending PrivMsg AST
+          CommandMessage(Some(sourcePrefix.toString), PrivMsg(msgTarget, msg))
         )
         this
     })
