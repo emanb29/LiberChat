@@ -31,8 +31,10 @@ case object Response {
       case (3, Nil)             => Right(RPL_CREATED("")) // we'll yet again assume an empty string is valid
       case (4, server :: version :: userModes :: chanModes :: _) =>
         Right(RPL_MYINFO(server, version, userModes.toSet, chanModes.toSet))
-      case (5, _)                  => Left(TooFewResponseParams(code, args, 4))
-      case (403, channelName :: _) => Right(ERR_NOSUCHCHANNEL(channelName))
+      case (4, _)                  => Left(TooFewResponseParams(code, args, 4))
+      case (401, nick :: _)        => Right(ERR_NOSUCHNICK(nick.irc))
+      case (401, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (403, channelName :: _) => Right(ERR_NOSUCHCHANNEL(channelName.irc))
       case (403, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (421, commandName :: _) => Right(ERR_UNKNOWNCOMMAND(commandName))
       case (421, Nil)              => Left(TooFewResponseParams(code, args, 1))
@@ -80,9 +82,13 @@ case object Response {
     val code = 4
     val args = Seq(servername, versionStr, userModes.mkString, chanModes.mkString)
   }
-  case class ERR_NOSUCHCHANNEL(channelName: String) extends Response {
+  case class ERR_NOSUCHNICK(nick: IRCString) extends Response {
+    val code = 401
+    val args = Seq(nick.str, "No such nick/channel")
+  }
+  case class ERR_NOSUCHCHANNEL(channelName: IRCString) extends Response {
     val code = 403
-    val args = Seq(channelName, "No such channel")
+    val args = Seq(channelName.str, "No such channel")
   }
   case class ERR_UNKNOWNCOMMAND(commandName: String) extends Response {
     val code = 421

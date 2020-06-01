@@ -33,7 +33,9 @@ case object Command {
         if (chans.forall(_.startsWith("#")))
           Right(JoinChannels(channels.split(",").toSeq.map(_.irc)))
         else
-          Left(GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get)))
+          Left(
+            GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get.irc))
+          )
       case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 2))
       case ("SERVER", servername :: hopcount :: info :: _) if hopcount.toIntOption.isDefined =>
         Right(Server(servername, hopcount.toInt, info))

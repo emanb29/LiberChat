@@ -52,6 +52,8 @@ object Client {
    */
   final case class ReserveNickCallback(nick: IRCString, success: Boolean) extends Command
 
+  final case class Passthru(message: Message) extends Command
+
   def apply(
     responseQueue: SourceQueueWithComplete[Message],
     userRegistry: ActorRef[UserRegistry.Command]
@@ -60,6 +62,7 @@ object Client {
       ctx.log.debug("Creating a new SessionActor")
       Client(ctx, responseQueue, userRegistry)
     }
+
 }
 
 /**
@@ -81,12 +84,20 @@ final case class Client(
    * During this phase, [[initState.isComplete]] _must_ return true
    */
   private lazy val onMessageMain: MessageHandler = {
-//    val prefix: Client.Prefix =
-//      Client.Prefix(initState.nick.get, initState.username.get, initState.hostname.get)
+    val prefix: Client.Prefix =
+      Client.Prefix(initState.nick.get, initState.username.get, initState.hostname.get)
 
     ({
-      case HandleIRCMessage(cm) =>
-        ctx.log.info(s"In main phase, got IRC message $cm")
+      case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
+          if (!target.str.startsWith("#")) =>
+        userRegistry.tell(UserRegistry.SendMessage(prefix, target, ctx.self, msg))
+        this
+      case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
+          if (target.str.startsWith("#")) =>
+        ??? // TODO message channel, if joined
+        this
+      case HandleIRCMessage(CommandMessage(_, IRCCommand.JoinChannels(channels))) =>
+        ??? // TODO join the room
         this
       case NotifyJoin(newUserPrefix, channel) =>
         responseQueue.offer(
@@ -142,14 +153,6 @@ final case class Client(
             initState.servername = Some(servername)
             initState.realname = Some(realname)
           // Any other IRC message is invalid at this stage (PASS notwithstanding)
-          case _ =>
-            ctx.log.info("User sent non-init related message during init phase")
-            responseQueue.offer(
-              ResponseMessage(
-                None,
-                Response.ERR_NOTREGISTERED
-              )
-            )
         }
         // If the message might be relevant to auth, change the initialization state
         if (initState.isComplete) movetoMainPhase()
@@ -174,6 +177,12 @@ final case class Client(
   override def onMessage(msg: Client.Command): Behavior[Client.Command] =
     currentMessageHandler.applyOrElse[Client.Command, Behavior[Client.Command]](
       msg, { // use the current message handler, or fall back to global behaviors
+        case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.Quit(message))) =>
+          // TODO do I need to do something with message? I forget
+          Behaviors.stopped
+        case Client.Passthru(message) =>
+          responseQueue.offer(message)
+          this
         case Client.Shutdown =>
           ctx.log.debug(s"Shutting down $this")
           // Free external allocations
@@ -181,7 +190,7 @@ final case class Client(
           Behaviors.stopped
         case Client.NoOp => this
         case c @ _ =>
-          ctx.log.error(s"Unexpected unhandled command message $c at ${this}")
+          ctx.log.error(s"Received unhandled command message $c at ${this}")
           Behaviors.unhandled
       }
     )
