@@ -5,13 +5,38 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.Command.PrivMsg
-import me.ethanbell.liberchat.server.Client.{HandleIRCMessage, NotifyJoin, NotifyMessage, ReserveNickCallback}
-import me.ethanbell.liberchat.{CommandMessage, IRCString, Message, Response, ResponseMessage, Command => IRCCommand}
+import me.ethanbell.liberchat.server.Client.{
+  HandleIRCMessage,
+  NotifyJoin,
+  NotifyMessage,
+  ReserveNickCallback
+}
+import me.ethanbell.liberchat.{
+  CommandMessage,
+  IRCString,
+  Message,
+  Response,
+  ResponseMessage,
+  Command => IRCCommand
+}
 
 object Client extends ActorCompanion {
   sealed trait Command
-  final case object NoOp                                extends Command
-  final case object Shutdown                            extends Command
+
+  /**
+   * Do nothing
+   */
+  final case object NoOp extends Command
+
+  /**
+   * Shutdown this client and clean it up from the system (ie, remove it from all connected channels, etc)
+   */
+  final case object Shutdown extends Command
+
+  /**
+   * Ask this client to handle an IRC command
+   * @param cm the commandmessage to handle
+   */
   final case class HandleIRCMessage(cm: CommandMessage) extends Command
 
   /**
@@ -30,10 +55,6 @@ object Client extends ActorCompanion {
   final case class NotifyMessage(sourcePrefix: Prefix, msgTarget: IRCString, msg: String)
       extends Command
 
-  final case class Prefix(nick: IRCString, username: String, hostname: String) {
-    override def toString: String = s"$nick!$username@$hostname"
-  }
-
   /**
    * The result of attempting to reserve a nick
    * @param nick The nick we tried to reserve
@@ -41,7 +62,15 @@ object Client extends ActorCompanion {
    */
   final case class ReserveNickCallback(nick: IRCString, success: Boolean) extends Command
 
+  /**
+   * Request this client directly return an IRCMessage to the user without further modification
+   * @param message
+   */
   final case class Passthru(message: Message) extends Command
+
+  final case class Prefix(nick: IRCString, username: String, hostname: String) {
+    override def toString: String = s"$nick!$username@$hostname"
+  }
 
   def apply(
     responseQueue: SourceQueueWithComplete[Message],

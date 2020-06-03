@@ -12,8 +12,27 @@ import scala.collection.mutable
 object UserRegistry extends RegistryCompanion {
   final val ACTOR_NAME = "user-registry"
   sealed trait Command
+
+  /**
+   * Attempt to reserve a nickname, issuing a reserve nick callback
+   * @param nick
+   * @param who
+   */
   final case class ReserveNick(nick: IRCString, who: ActorRef[Client.Command]) extends Command
-  final case class FreeNick(nick: IRCString)                                   extends Command
+
+  /**
+   * Mark a nickname as free for claiming
+   * @param nick
+   */
+  final case class FreeNick(nick: IRCString) extends Command
+
+  /**
+   * Attempt to send a private message to a user
+   * @param from the prefix of the sender of the message
+   * @param toNick the nickname of the recipient of the message
+   * @param fromRef the actor who requested the message be sent, in case the recipient could not be found
+   * @param message the message body
+   */
   final case class SendMessage(
     from: Client.Prefix,
     toNick: IRCString,

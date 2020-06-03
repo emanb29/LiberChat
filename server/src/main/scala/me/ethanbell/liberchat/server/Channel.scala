@@ -9,6 +9,12 @@ import scala.collection.mutable
 
 object Channel extends ActorCompanion {
   sealed trait Command
+
+  /**
+   * Instruct the channel to start sending messages to a user
+   * @param newUserPrefix the prefix of the user joining, to send to all current users
+   * @param who the user joining
+   */
   final case class Join(newUserPrefix: Client.Prefix, who: ActorRef[Client.Command]) extends Command
 
   def apply(name: IRCString): Behavior[Command] = Behaviors.setup { ctx =>
