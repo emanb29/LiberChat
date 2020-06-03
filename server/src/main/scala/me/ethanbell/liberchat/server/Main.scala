@@ -28,6 +28,10 @@ case object Main extends App {
     SpawnProtocol.Spawn(UserRegistry(), UserRegistry.ACTOR_NAME, Props.empty, _)
   )
 
+  val channelRegistryFut = system.ask[ActorRef[ChannelRegistry.Command]](
+    SpawnProtocol.Spawn(ChannelRegistry(), ChannelRegistry.ACTOR_NAME, Props.empty, _)
+  )
+
   val chattySupervisor: Supervision.Decider = { err =>
     system.log.error("Unhandled exception in stream", err)
     Supervision.Stop
@@ -46,11 +50,12 @@ case object Main extends App {
       Source.queue[Message](20, OverflowStrategy.backpressure).preMaterialize()
 
     val sessionActorFut: Future[ActorRef[Client.Command]] = for {
-      userRegistry <- userRegistryFut
+      userRegistry    <- userRegistryFut
+      channelRegistry <- channelRegistryFut
       sessionActor <- system
         .ask[ActorRef[Client.Command]](
           SpawnProtocol.Spawn(
-            Client(actorResponseQueue, userRegistry),
+            Client(actorResponseQueue, userRegistry, channelRegistry),
             conn.remoteAddress.getHostName.filter(_.isLetter),
             Props.empty,
             _

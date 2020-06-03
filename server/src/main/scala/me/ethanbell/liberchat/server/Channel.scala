@@ -2,11 +2,12 @@ package me.ethanbell.liberchat.server
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
+import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.IRCString
 
 import scala.collection.mutable
 
-object Channel {
+object Channel extends ActorCompanion {
   sealed trait Command
   final case class Join(newUserPrefix: Client.Prefix, who: ActorRef[Client.Command]) extends Command
 

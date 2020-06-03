@@ -5,6 +5,17 @@ import akka.actor.typed.ActorRef
 import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Partition}
 object AkkaUtil {
+  trait ActorCompanion {
+    type Command
+  }
+
+  /**
+   * Base type for named singleton actors such as registries
+   */
+  trait RegistryCompanion extends ActorCompanion {
+    val ACTOR_NAME: String
+  }
+
   trait Replyable {
     type T
     val replyTo: ActorRef[T]

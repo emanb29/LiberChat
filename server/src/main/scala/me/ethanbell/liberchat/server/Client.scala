@@ -3,23 +3,12 @@ package me.ethanbell.liberchat.server
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
+import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.Command.PrivMsg
-import me.ethanbell.liberchat.server.Client.{
-  HandleIRCMessage,
-  NotifyJoin,
-  NotifyMessage,
-  ReserveNickCallback
-}
-import me.ethanbell.liberchat.{
-  CommandMessage,
-  IRCString,
-  Message,
-  Response,
-  ResponseMessage,
-  Command => IRCCommand
-}
+import me.ethanbell.liberchat.server.Client.{HandleIRCMessage, NotifyJoin, NotifyMessage, ReserveNickCallback}
+import me.ethanbell.liberchat.{CommandMessage, IRCString, Message, Response, ResponseMessage, Command => IRCCommand}
 
-object Client {
+object Client extends ActorCompanion {
   sealed trait Command
   final case object NoOp                                extends Command
   final case object Shutdown                            extends Command
@@ -56,11 +45,12 @@ object Client {
 
   def apply(
     responseQueue: SourceQueueWithComplete[Message],
-    userRegistry: ActorRef[UserRegistry.Command]
+    userRegistry: ActorRef[UserRegistry.Command],
+    channelRegistry: ActorRef[ChannelRegistry.Command]
   ): Behavior[Client.Command] =
     Behaviors.setup { ctx =>
       ctx.log.debug("Creating a new SessionActor")
-      Client(ctx, responseQueue, userRegistry)
+      Client(ctx, responseQueue, userRegistry, channelRegistry)
     }
 
 }
@@ -74,7 +64,8 @@ object Client {
 final case class Client(
   ctx: ActorContext[Client.Command],
   responseQueue: SourceQueueWithComplete[Message],
-  userRegistry: ActorRef[UserRegistry.Command]
+  userRegistry: ActorRef[UserRegistry.Command],
+  channelRegistry: ActorRef[ChannelRegistry.Command]
 ) extends AbstractBehavior[Client.Command](ctx) {
   private type MessageHandler =
     PartialFunction[Client.Command, Behavior[Client.Command]]
@@ -84,6 +75,7 @@ final case class Client(
    * During this phase, [[initState.isComplete]] _must_ return true
    */
   private lazy val onMessageMain: MessageHandler = {
+    // TODO val connectedChannels: mutable.Map[IRCString, ActorRef[Channel.Command]] = mutable.Map.empty
     val prefix: Client.Prefix =
       Client.Prefix(initState.nick.get, initState.username.get, initState.hostname.get)
 
@@ -100,6 +92,10 @@ final case class Client(
         ??? // TODO join the room
         this
       case NotifyJoin(newUserPrefix, channel) =>
+        if (newUserPrefix == prefix) {
+          // TODO ask channel registry for channel handle
+          // TODO add to connected channels
+        }
         responseQueue.offer(
           CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channel)))
         )
@@ -143,18 +139,15 @@ final case class Client(
     }
 
     ({
-      case Client.HandleIRCMessage(commandMsg) =>
-        commandMsg.command match {
-          case IRCCommand.Nick(nick, _) =>
-            userRegistry.tell(UserRegistry.ReserveNick(nick, ctx.self))
-          case IRCCommand.User(username, hostname, servername, realname) =>
-            initState.username = Some(username)
-            initState.hostname = Some(hostname)
-            initState.servername = Some(servername)
-            initState.realname = Some(realname)
-          // Any other IRC message is invalid at this stage (PASS notwithstanding)
-        }
-        // If the message might be relevant to auth, change the initialization state
+      case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.Nick(nick, _))) =>
+        userRegistry.tell(UserRegistry.ReserveNick(nick, ctx.self))
+      case Client.HandleIRCMessage(
+          CommandMessage(_, IRCCommand.User(username, hostname, servername, realname))
+          ) =>
+        initState.username = Some(username)
+        initState.hostname = Some(hostname)
+        initState.servername = Some(servername)
+        initState.realname = Some(realname)
         if (initState.isComplete) movetoMainPhase()
       // For the above behavior, if we got a Nick command, then asked the client registry if the nick was free
       case ReserveNickCallback(nick, true) =>

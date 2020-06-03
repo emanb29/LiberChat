@@ -2,13 +2,14 @@ package me.ethanbell.liberchat.server
 
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import me.ethanbell.liberchat.AkkaUtil.RegistryCompanion
 import me.ethanbell.liberchat.Response.ERR_NOSUCHNICK
 import me.ethanbell.liberchat.{IRCString, ResponseMessage}
 import me.ethanbell.liberchat.server.Client.ReserveNickCallback
 
 import scala.collection.mutable
 
-object UserRegistry {
+object UserRegistry extends RegistryCompanion {
   final val ACTOR_NAME = "user-registry"
   sealed trait Command
   final case class ReserveNick(nick: IRCString, who: ActorRef[Client.Command]) extends Command
