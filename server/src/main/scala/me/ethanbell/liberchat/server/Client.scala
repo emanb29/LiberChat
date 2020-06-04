@@ -10,7 +10,8 @@ import me.ethanbell.liberchat.server.Client.{
   NotifyJoin,
   NotifyMessage,
   NotifyPart,
-  ReserveNickCallback
+  ReserveNickCallback,
+  SendChannelList
 }
 import me.ethanbell.liberchat.{
   CommandMessage,
@@ -72,6 +73,8 @@ object Client extends ActorCompanion {
    * @param success Whether it was successfully reserved.
    */
   final case class ReserveNickCallback(nick: IRCString, success: Boolean) extends Command
+
+  final case class SendChannelList(channels: Seq[(IRCString, Int, String)]) extends Command
 
   /**
    * Request this client directly return an IRCMessage to the user without further modification
@@ -138,6 +141,9 @@ final case class Client(
         channelRegistry.tell(ChannelRegistry.JoinOrCreate(chan, prefix, ctx.self))
       }
       this
+    case HandleIRCMessage(CommandMessage(_, IRCCommand.ListChannels(channels))) =>
+      channelRegistry.tell(ChannelRegistry.GetChannelList(channels, ctx.self))
+      this
     case NotifyJoin(newUserPrefix, channelName, channelRef) =>
       if (newUserPrefix == prefix) {
         connectedChannels += (channelName -> channelRef)
@@ -158,6 +164,12 @@ final case class Client(
       responseQueue.offer(
         CommandMessage(Some(sourcePrefix.toString), PrivMsg(msgTarget, msg))
       )
+      this
+    case SendChannelList(channels) =>
+      val responses: Seq[Response] = channels.map {
+          case (name, users, topic) => Response.RPL_LIST(name, users, topic)
+        } :+ Response.RPL_LISTEND
+      responses.foreach(r => responseQueue.offer(ResponseMessage(None, r)))
       this
   }
 
