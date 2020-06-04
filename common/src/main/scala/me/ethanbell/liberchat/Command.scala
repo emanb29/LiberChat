@@ -111,6 +111,11 @@ case object Command {
     override def args: Seq[String] = Seq(channels.map(_.str).mkString(","))
   }
 
+  object Part {
+    def apply(channel: IRCString, reason: Option[String] = None): Part =
+      Part(Vector(channel), reason)
+  }
+
   /**
    * @see https://tools.ietf.org/html/rfc2812#section-3.2.2
    * @param channels the channels to leave

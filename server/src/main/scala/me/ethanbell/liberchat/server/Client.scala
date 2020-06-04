@@ -150,7 +150,9 @@ final case class Client(
       if (leavingPrefix == prefix) {
         connectedChannels -= channel
       }
-      responseQueue.offer(CommandMessage(Some(leavingPrefix.toString), ???)) // TODO need a PART IRCCommand
+      responseQueue.offer(
+        CommandMessage(Some(leavingPrefix.toString), IRCCommand.Part(channel, reason))
+      )
       this
     case NotifyMessage(sourcePrefix, msgTarget, msg) =>
       responseQueue.offer(
