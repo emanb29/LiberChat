@@ -129,7 +129,11 @@ final case class Client(
       this
     case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
         if (target.str.startsWith("#")) =>
-      ??? // TODO message channel, if joined
+      if (connectedChannels.contains(target)) {
+        connectedChannels(target).tell(Channel.SendMessage(prefix, msg))
+      } else {
+        responseQueue.offer(ResponseMessage(None, Response.ERR_CANNOTSENDTOCHAN(target)))
+      }
       this
     case HandleIRCMessage(CommandMessage(_, IRCCommand.LeaveAll)) =>
       connectedChannels.foreach {

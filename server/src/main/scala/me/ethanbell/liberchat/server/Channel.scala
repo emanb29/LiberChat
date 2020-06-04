@@ -17,6 +17,7 @@ object Channel extends ActorCompanion {
    */
   final case class Join(newUserPrefix: Client.Prefix, who: ActorRef[Client.Command]) extends Command
   final case class Part(leavingPrefix: Client.Prefix, reason: Option[String])        extends Command
+  final case class SendMessage(sourcePrefix: Client.Prefix, msg: String)             extends Command
 
   def apply(name: IRCString): Behavior[Command] = Behaviors.setup { ctx =>
     ctx.log.info("Initializing user registry")
@@ -38,6 +39,15 @@ final case class Channel(ctx: ActorContext[Channel.Command], name: IRCString)
         case (_, userRef) => userRef.tell(Client.NotifyPart(prefix, this.name, reason))
       }
       users -= prefix.nick
+      this
+    case Channel.SendMessage(sourcePrefix, msg) =>
+      users
+        .collect {
+          case (nick, ref) if nick != sourcePrefix.nick => ref
+        }
+        .foreach { client =>
+          client.tell(Client.NotifyMessage(sourcePrefix, this.name, msg))
+        }
       this
   }
 }

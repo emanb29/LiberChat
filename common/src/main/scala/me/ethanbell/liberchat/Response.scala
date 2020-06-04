@@ -40,6 +40,8 @@ case object Response {
       case (401, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (403, channelName :: _) => Right(ERR_NOSUCHCHANNEL(channelName.irc))
       case (403, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (404, channelName :: _) => Right(ERR_CANNOTSENDTOCHAN(channelName.irc))
+      case (404, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (421, commandName :: _) => Right(ERR_UNKNOWNCOMMAND(commandName))
       case (421, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (433, nick :: _)        => Right(ERR_NICKNAMEINUSE(nick.irc))
@@ -103,6 +105,10 @@ case object Response {
   case class ERR_NOSUCHCHANNEL(channelName: IRCString) extends Response {
     val code = 403
     val args = Seq(channelName.str, "No such channel")
+  }
+  case class ERR_CANNOTSENDTOCHAN(channelName: IRCString) extends Response {
+    val code = 404
+    val args = Seq(channelName.str, "Cannot send to channel")
   }
   case class ERR_UNKNOWNCOMMAND(commandName: String) extends Response {
     val code = 421

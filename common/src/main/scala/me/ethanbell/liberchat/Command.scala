@@ -37,7 +37,7 @@ case object Command {
             GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get.irc))
           )
       case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 1))
-      case ("PART", channels :: addtlParams) => // TODO add a keyed variant
+      case ("PART", channels :: addtlParams) =>
         val chans = channels.split(",")
         if (chans.forall(_.startsWith("#"))) {
           val channelNames = chans.toSeq.map(_.irc)
