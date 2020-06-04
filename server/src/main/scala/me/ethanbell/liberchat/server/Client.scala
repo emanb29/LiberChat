@@ -6,14 +6,6 @@ import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.Command.PrivMsg
 import me.ethanbell.liberchat.Response.ERR_NOTONCHANNEL
-import me.ethanbell.liberchat.server.Client.{
-  HandleIRCMessage,
-  NotifyJoin,
-  NotifyMessage,
-  NotifyPart,
-  ReserveNickCallback,
-  SendChannelList
-}
 import me.ethanbell.liberchat.{
   CommandMessage,
   IRCString,
@@ -77,6 +69,8 @@ object Client extends ActorCompanion {
 
   final case class SendChannelList(channels: Seq[(IRCString, Int, String)]) extends Command
 
+  final case class NotifyNames(channel: IRCString, names: Seq[IRCString]) extends Command
+
   /**
    * Request this client directly return an IRCMessage to the user without further modification
    * @param message
@@ -124,11 +118,11 @@ final case class Client(
    * During this phase, [[initState.isComplete]] _must_ return true
    */
   private lazy val onMessageMain: MessageHandler = {
-    case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
         if (!target.str.startsWith("#")) =>
       userRegistry.tell(UserRegistry.SendMessage(prefix, target, ctx.self, msg))
       this
-    case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
         if (target.str.startsWith("#")) =>
       if (connectedChannels.contains(target)) {
         connectedChannels(target).tell(Channel.SendMessage(prefix, msg))
@@ -136,18 +130,18 @@ final case class Client(
         responseQueue.offer(ResponseMessage(None, Response.ERR_CANNOTSENDTOCHAN(target)))
       }
       this
-    case HandleIRCMessage(CommandMessage(_, IRCCommand.LeaveAll)) =>
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.LeaveAll)) =>
       connectedChannels.foreach {
         case (_, chan) => chan.tell(Channel.Part(prefix, None))
       }
       connectedChannels.clear()
       this
-    case HandleIRCMessage(CommandMessage(_, IRCCommand.JoinChannels(channels))) =>
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.JoinChannels(channels))) =>
       channels.foreach { chan =>
         channelRegistry.tell(ChannelRegistry.JoinOrCreate(chan, prefix, ctx.self))
       }
       this
-    case HandleIRCMessage(CommandMessage(_, IRCCommand.Part(channels, reason))) =>
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.Part(channels, reason))) =>
       val unconnectedChannels = channels.filterNot(connectedChannels.contains)
       if (unconnectedChannels.nonEmpty) // if a channel listed is not connected
         {
@@ -158,10 +152,13 @@ final case class Client(
         }
       }
       this
-    case HandleIRCMessage(CommandMessage(_, IRCCommand.ListChannels(channels))) =>
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.Names(channels))) =>
+      channelRegistry.tell(ChannelRegistry.ListNames(channels, ctx.self))
+      this
+    case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.ListChannels(channels))) =>
       channelRegistry.tell(ChannelRegistry.GetChannelList(channels, ctx.self))
       this
-    case NotifyJoin(newUserPrefix, channelName, channelRef) =>
+    case Client.NotifyJoin(newUserPrefix, channelName, channelRef) =>
       if (newUserPrefix == prefix) {
         connectedChannels += (channelName -> channelRef)
       }
@@ -169,7 +166,7 @@ final case class Client(
         CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channelName)))
       )
       this
-    case NotifyPart(leavingPrefix, channel, reason) =>
+    case Client.NotifyPart(leavingPrefix, channel, reason) =>
       if (leavingPrefix == prefix) {
         connectedChannels -= channel
       }
@@ -177,16 +174,22 @@ final case class Client(
         CommandMessage(Some(leavingPrefix.toString), IRCCommand.Part(channel, reason))
       )
       this
-    case NotifyMessage(sourcePrefix, msgTarget, msg) =>
+    case Client.NotifyMessage(sourcePrefix, msgTarget, msg) =>
       responseQueue.offer(
         CommandMessage(Some(sourcePrefix.toString), PrivMsg(msgTarget, msg))
       )
       this
-    case SendChannelList(channels) =>
+    case Client.SendChannelList(channels) =>
       val responses: Seq[Response] = channels.map {
           case (name, users, topic) => Response.RPL_LIST(name, users, topic)
         } :+ Response.RPL_LISTEND
       responses.foreach(r => responseQueue.offer(ResponseMessage(None, r)))
+      this
+    case Client.NotifyNames(channel, names) =>
+      names.grouped(5).foreach { fiveNames =>
+        responseQueue.offer(ResponseMessage(None, Response.PublicChannelNames(channel, fiveNames)))
+      }
+      responseQueue.offer(ResponseMessage(None, Response.RPL_ENDOFNAMES(channel)))
       this
   }
 
@@ -232,13 +235,13 @@ final case class Client(
         initState.realname = Some(realname)
         if (initState.isComplete) movetoMainPhase()
       // For the above behavior, if we got a Nick command, then asked the client registry if the nick was free
-      case ReserveNickCallback(nick, true) =>
+      case Client.ReserveNickCallback(nick, true) =>
         initState.nick.foreach { oldNick =>
           userRegistry.tell(UserRegistry.FreeNick(oldNick))
         }
         initState.nick = Some(nick)
         if (initState.isComplete) movetoMainPhase()
-      case ReserveNickCallback(nick, false) =>
+      case Client.ReserveNickCallback(nick, false) =>
         ctx.log.info(s"User at ${ctx.self} requested nick $nick, but that nick was taken")
         responseQueue.offer(
           ResponseMessage(

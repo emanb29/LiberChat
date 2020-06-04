@@ -25,6 +25,9 @@ object ChannelRegistry extends RegistryCompanion {
   final case class RemoveChannel(channelName: IRCString)    extends Command
   final case class HandleDeadLetter(deadLetter: DeadLetter) extends Command
 
+  final case class ListNames(channels: Seq[IRCString], replyTo: ActorRef[Client.Command])
+      extends Command
+
   def apply(): Behavior[Command] = Behaviors.setup { ctx =>
     val deadLetterMapper = ctx.messageAdapter[DeadLetter](HandleDeadLetter.apply)
     ctx.system.eventStream.tell(EventStream.Subscribe(deadLetterMapper))
@@ -72,6 +75,14 @@ final case class ChannelRegistry(ctx: ActorContext[ChannelRegistry.Command])
           else selectedChannels.toSet & channels.keySet
         val channelInfo = channelsToSend.map((_, -1, "This server does not support topics.")).toList
         replyTo.tell(Client.SendChannelList(channelInfo))
+        this
+      case ChannelRegistry.ListNames(selectedChannels, replyTo) =>
+        val channelsToSend =
+          if (selectedChannels.isEmpty) channels.keys
+          else selectedChannels.toSet & channels.keySet
+        channelsToSend.map(channels.apply).foreach { chanRef =>
+          chanRef.tell(Channel.GetNames(replyTo))
+        }
         this
     }
 

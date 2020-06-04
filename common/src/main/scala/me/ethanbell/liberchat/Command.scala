@@ -57,6 +57,12 @@ case object Command {
           case Nil           => Seq()
         }
         Right(ListChannels(channelNames))
+      case ("NAMES", channelsOrNone) =>
+        val channelNames = channelsOrNone match {
+          case channels :: _ => channels.split(",").filter(_.startsWith("#")).toSeq.map(_.irc)
+          case Nil           => Seq()
+        }
+        Right(Names(channelNames))
       case ("SERVER", servername :: hopcount :: info :: _) if hopcount.toIntOption.isDefined =>
         Right(Server(servername, hopcount.toInt, info))
       case ("SERVER", _)                          => Left(TooFewCommandParams(commandName, args, 3))
@@ -124,6 +130,15 @@ case object Command {
   final case class Part(channels: Seq[IRCString], reason: Option[String]) extends Command {
     override def name: String      = "PART"
     override def args: Seq[String] = Seq(channels.map(_.str).mkString(",")) ++ reason
+  }
+
+  /**
+   * @see https://tools.ietf.org/html/rfc2812#section-3.2.5
+   * @param channels the channels to list users from
+   */
+  final case class Names(channels: Seq[IRCString]) extends Command {
+    override def name: String      = "NAMES"
+    override def args: Seq[String] = Seq(channels.map(_.str).mkString(","))
   }
 
   /**

@@ -34,8 +34,13 @@ case object Response {
       case (4, _) => Left(TooFewResponseParams(code, args, 4))
       case (322, channel :: usercountStr :: topic :: Nil) if usercountStr.toIntOption.isDefined =>
         Right(RPL_LIST(channel.irc, usercountStr.toInt, topic))
-      case (322, _)                => Left(TooFewResponseParams(code, args, 3))
-      case (323, _)                => Right(RPL_LISTEND)
+      case (322, _) => Left(TooFewResponseParams(code, args, 3))
+      case (323, _) => Right(RPL_LISTEND)
+      case (353, "=" :: channelName :: nicks :: Nil) =>
+        Right(PublicChannelNames(channelName.irc, nicks.split(" ").toSeq.map(_.irc)))
+      case (353, _)                => Left(TooFewResponseParams(code, args, 3))
+      case (366, channelName :: _) => Right(RPL_ENDOFNAMES(channelName.irc))
+      case (366, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (401, nick :: _)        => Right(ERR_NOSUCHNICK(nick.irc))
       case (401, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (403, channelName :: _) => Right(ERR_NOSUCHCHANNEL(channelName.irc))
@@ -97,6 +102,21 @@ case object Response {
   case object RPL_LISTEND extends Response {
     val code = 323
     val args = Seq("End of LIST")
+  }
+
+  sealed trait RPL_NAMREPLY extends Response {
+    val code = 353
+    val channelName: IRCString
+    def args: Seq[String]
+  }
+  case class PublicChannelNames(override val channelName: IRCString, nicks: Seq[IRCString])
+      extends RPL_NAMREPLY {
+    override val args: Seq[String] = Seq("=", channelName.str, nicks.map(_.str).mkString(" "))
+  }
+
+  case class RPL_ENDOFNAMES(channelName: IRCString) extends Response {
+    val code = 366
+    val args = Seq(channelName.str, "End of NAMES list")
   }
   case class ERR_NOSUCHNICK(nick: IRCString) extends Response {
     val code = 401

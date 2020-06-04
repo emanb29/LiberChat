@@ -1,7 +1,7 @@
 package me.ethanbell.liberchat.server
 
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior}
 import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.IRCString
 
@@ -25,6 +25,7 @@ object Channel extends ActorCompanion {
   ) extends Command
   final case class Part(leavingPrefix: Client.Prefix, reason: Option[String]) extends Command
   final case class SendMessage(sourcePrefix: Client.Prefix, msg: String)      extends Command
+  final case class GetNames(replyTo: ActorRef[Client.NotifyNames])            extends Command
 
   def apply(registry: ActorRef[ChannelRegistry.Command], name: IRCString): Behavior[Command] =
     Behaviors.setup { ctx =>
@@ -62,6 +63,9 @@ final case class Channel(
         .foreach { client =>
           client.tell(Client.NotifyMessage(sourcePrefix, this.name, msg))
         }
+      this
+    case Channel.GetNames(replyTo) =>
+      replyTo.tell(Client.NotifyNames(this.name, users.keys.toSeq))
       this
   }
 }
