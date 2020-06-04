@@ -236,18 +236,15 @@ final case class Client(
     currentMessageHandler.applyOrElse[Client.Command, Behavior[Client.Command]](
       msg, { // use the current message handler, or fall back to global behaviors
         case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.Quit(message))) =>
-          // TODO do I need to do something with message? I forget
+          // TODO could ack with an ERROR
+          doCleanup()
           Behaviors.stopped
         case Client.Passthru(message) =>
           responseQueue.offer(message)
           this
         case Client.Shutdown =>
           ctx.log.debug(s"Shutting down $this")
-          // Free external allocations
-          initState.nick.foreach(nick => userRegistry.tell(UserRegistry.FreeNick(nick)))
-          connectedChannels.foreach {
-            case (_, channelRef) => channelRef.tell(Channel.Part(prefix, None))
-          }
+          doCleanup()
           Behaviors.stopped
         case Client.NoOp => this
         case c @ _ =>
@@ -255,4 +252,13 @@ final case class Client(
           Behaviors.unhandled
       }
     )
+
+  private def doCleanup(): Unit = {
+    // Free external allocations
+    initState.nick.foreach(nick => userRegistry.tell(UserRegistry.FreeNick(nick)))
+    connectedChannels.foreach {
+      case (_, channelRef) => channelRef.tell(Channel.Part(prefix, None))
+    }
+  }
+
 }
