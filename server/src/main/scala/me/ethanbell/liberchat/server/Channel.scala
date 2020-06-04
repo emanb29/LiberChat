@@ -35,7 +35,7 @@ final case class Channel(ctx: ActorContext[Channel.Command], name: IRCString)
       this
     case Channel.Part(prefix, reason) =>
       users.foreach {
-        case (_, userRef) => userRef.tell(Client.NotifyPart(prefix, reason, this.name))
+        case (_, userRef) => userRef.tell(Client.NotifyPart(prefix, this.name, reason))
       }
       users -= prefix.nick
       this

@@ -5,8 +5,21 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.Command.PrivMsg
-import me.ethanbell.liberchat.server.Client.{HandleIRCMessage, NotifyJoin, NotifyMessage, NotifyPart, ReserveNickCallback}
-import me.ethanbell.liberchat.{CommandMessage, IRCString, Message, Response, ResponseMessage, Command => IRCCommand}
+import me.ethanbell.liberchat.server.Client.{
+  HandleIRCMessage,
+  NotifyJoin,
+  NotifyMessage,
+  NotifyPart,
+  ReserveNickCallback
+}
+import me.ethanbell.liberchat.{
+  CommandMessage,
+  IRCString,
+  Message,
+  Response,
+  ResponseMessage,
+  Command => IRCCommand
+}
 
 import scala.collection.mutable
 
@@ -41,11 +54,8 @@ object Client extends ActorCompanion {
     channelRef: ActorRef[Channel.Command]
   ) extends Command
 
-  final case class NotifyPart(
-    leavingPrefix: Prefix,
-    reason: Option[String],
-    channel: IRCString
-  ) extends Command
+  final case class NotifyPart(leavingPrefix: Prefix, channel: IRCString, reason: Option[String])
+      extends Command
 
   /**
    * Notify the client of a new message
@@ -136,11 +146,11 @@ final case class Client(
         CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channelName)))
       )
       this
-    case NotifyPart(leavingPrefix, reason, channel) =>
+    case NotifyPart(leavingPrefix, channel, reason) =>
       if (leavingPrefix == prefix) {
         connectedChannels -= channel
       }
-      responseQueue.offer(CommandMessage(Some(leavingPrefix), ???)) // TODO need a PART IRCCommand
+      responseQueue.offer(CommandMessage(Some(leavingPrefix.toString), ???)) // TODO need a PART IRCCommand
       this
     case NotifyMessage(sourcePrefix, msgTarget, msg) =>
       responseQueue.offer(

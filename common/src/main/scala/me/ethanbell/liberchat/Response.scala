@@ -31,7 +31,11 @@ case object Response {
       case (3, Nil)             => Right(RPL_CREATED("")) // we'll yet again assume an empty string is valid
       case (4, server :: version :: userModes :: chanModes :: _) =>
         Right(RPL_MYINFO(server, version, userModes.toSet, chanModes.toSet))
-      case (4, _)                  => Left(TooFewResponseParams(code, args, 4))
+      case (4, _) => Left(TooFewResponseParams(code, args, 4))
+      case (322, channel :: usercountStr :: topic :: Nil) if usercountStr.toIntOption.isDefined =>
+        Right(RPL_LIST(channel.irc, usercountStr.toInt, topic))
+      case (322, _)                => Left(TooFewResponseParams(code, args, 3))
+      case (323, _)                => Right(RPL_LISTEND)
       case (401, nick :: _)        => Right(ERR_NOSUCHNICK(nick.irc))
       case (401, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (403, channelName :: _) => Right(ERR_NOSUCHCHANNEL(channelName.irc))
@@ -40,6 +44,8 @@ case object Response {
       case (421, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (433, nick :: _)        => Right(ERR_NICKNAMEINUSE(nick.irc))
       case (433, Nil)              => Left(TooFewResponseParams(code, args, 1))
+      case (442, chan :: _)        => Right(ERR_NOTONCHANNEL(chan.irc))
+      case (442, Nil)              => Left(TooFewResponseParams(code, args, 1))
       case (451, _)                => Right(ERR_NOTREGISTERED)
       case (461, commandName :: _) => Right(ERR_NEEDMOREPARAMS(commandName))
       case (461, Nil)              => Left(TooFewResponseParams(code, args, 1))
@@ -82,6 +88,14 @@ case object Response {
     val code = 4
     val args = Seq(servername, versionStr, userModes.mkString, chanModes.mkString)
   }
+  case class RPL_LIST(channelName: IRCString, visibleUsers: Int, topic: String) extends Response {
+    val code = 322
+    val args = Seq(channelName.str, visibleUsers.toString, topic)
+  }
+  case object RPL_LISTEND extends Response {
+    val code = 323
+    val args = Seq("End of LIST")
+  }
   case class ERR_NOSUCHNICK(nick: IRCString) extends Response {
     val code = 401
     val args = Seq(nick.str, "No such nick/channel")
@@ -97,6 +111,10 @@ case object Response {
   case class ERR_NICKNAMEINUSE(nick: IRCString) extends Response {
     val code = 433
     val args = Seq(nick.str, "Nickname is already in use")
+  }
+  case class ERR_NOTONCHANNEL(channelName: IRCString) extends Response {
+    val code = 442
+    val args = Seq(channelName.str, "You're not on that channel")
   }
   case object ERR_NOTREGISTERED extends Response {
     val code = 451

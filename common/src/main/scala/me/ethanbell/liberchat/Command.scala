@@ -31,12 +31,32 @@ case object Command {
       case ("JOIN", channels :: _) => // TODO add a keyed variant
         val chans = channels.split(",")
         if (chans.forall(_.startsWith("#")))
-          Right(JoinChannels(channels.split(",").toSeq.map(_.irc)))
+          Right(JoinChannels(chans.toSeq.map(_.irc)))
         else
           Left(
             GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get.irc))
           )
-      case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 2))
+      case ("JOIN", _) => Left(TooFewCommandParams(commandName, args, 1))
+      case ("PART", channels :: addtlParams) => // TODO add a keyed variant
+        val chans = channels.split(",")
+        if (chans.forall(_.startsWith("#"))) {
+          val channelNames = chans.toSeq.map(_.irc)
+          addtlParams match {
+            case reason :: _ => Right(Part(channelNames, Some(reason)))
+            case Nil =>
+              Right(Part(channelNames, None))
+          }
+        } else
+          Left(
+            GenericResponseError(Response.ERR_NOSUCHCHANNEL(chans.find(!_.startsWith("#")).get.irc))
+          )
+      case ("PART", _) => Left(TooFewCommandParams(commandName, args, 1))
+      case ("LIST", channelsOrNone) =>
+        val channelNames: Seq[IRCString] = channelsOrNone match {
+          case channels :: _ => channels.split(",").filter(_.startsWith("#")).toSeq.map(_.irc)
+          case Nil           => Seq()
+        }
+        Right(ListChannels(channelNames))
       case ("SERVER", servername :: hopcount :: info :: _) if hopcount.toIntOption.isDefined =>
         Right(Server(servername, hopcount.toInt, info))
       case ("SERVER", _)                          => Left(TooFewCommandParams(commandName, args, 3))
@@ -88,6 +108,26 @@ case object Command {
     override def args: Seq[String] = Seq("0")
   }
   final case class JoinChannels(channels: Seq[IRCString]) extends Join { // TODO add keys support
+    override def args: Seq[String] = Seq(channels.map(_.str).mkString(","))
+  }
+
+  /**
+   * @see https://tools.ietf.org/html/rfc2812#section-3.2.2
+   * @param channels the channels to leave
+   * @param reason the reason, if any, for leaving
+   */
+  final case class Part(channels: Seq[IRCString], reason: Option[String]) extends Command {
+    override def name: String      = "PART"
+    override def args: Seq[String] = Seq(channels.map(_.str).mkString(",")) ++ reason
+  }
+
+  /**
+   * @see https://tools.ietf.org/html/rfc2812#section-3.2.6
+   * @param channels a list of channels (if any) to list specifically. If empty, all will be listed.
+   *                 If none are valid channel names, all will be listed
+   */
+  final case class ListChannels(channels: Seq[IRCString]) extends Command {
+    override def name: String      = "LIST"
     override def args: Seq[String] = Seq(channels.map(_.str).mkString(","))
   }
 
