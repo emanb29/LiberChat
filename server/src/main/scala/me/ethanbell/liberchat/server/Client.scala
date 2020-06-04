@@ -5,6 +5,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.Command.PrivMsg
+import me.ethanbell.liberchat.Response.ERR_NOTONCHANNEL
 import me.ethanbell.liberchat.server.Client.{
   HandleIRCMessage,
   NotifyJoin,
@@ -139,10 +140,22 @@ final case class Client(
       connectedChannels.foreach {
         case (_, chan) => chan.tell(Channel.Part(prefix, None))
       }
+      connectedChannels.clear()
       this
     case HandleIRCMessage(CommandMessage(_, IRCCommand.JoinChannels(channels))) =>
       channels.foreach { chan =>
         channelRegistry.tell(ChannelRegistry.JoinOrCreate(chan, prefix, ctx.self))
+      }
+      this
+    case HandleIRCMessage(CommandMessage(_, IRCCommand.Part(channels, reason))) =>
+      val unconnectedChannels = channels.filterNot(connectedChannels.contains)
+      if (unconnectedChannels.nonEmpty) // if a channel listed is not connected
+        {
+          responseQueue.offer(ResponseMessage(None, ERR_NOTONCHANNEL(unconnectedChannels.head)))
+        } else {
+        channels.flatMap(connectedChannels.remove).foreach { channel =>
+          channel.tell(Channel.Part(prefix, reason))
+        }
       }
       this
     case HandleIRCMessage(CommandMessage(_, IRCCommand.ListChannels(channels))) =>
@@ -241,6 +254,9 @@ final case class Client(
       msg, { // use the current message handler, or fall back to global behaviors
         case Client.HandleIRCMessage(CommandMessage(_, IRCCommand.Quit(message))) =>
           // TODO could ack with an ERROR
+          responseQueue.offer(
+            CommandMessage(None, IRCCommand.Quit(Some("Disconnecting at client's request")))
+          )
           doCleanup()
           Behaviors.stopped
         case Client.Passthru(message) =>

@@ -1,5 +1,7 @@
 package me.ethanbell.liberchat.server
 
+import akka.actor.DeadLetter
+import akka.actor.typed.eventstream.EventStream
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import me.ethanbell.liberchat.AkkaUtil.RegistryCompanion
@@ -17,11 +19,16 @@ object ChannelRegistry extends RegistryCompanion {
     user: ActorRef[Client.Command]
   ) extends Command
 
-  case class GetChannelList(channels: Seq[IRCString], replyTo: ActorRef[Client.Command])
+  final case class GetChannelList(channels: Seq[IRCString], replyTo: ActorRef[Client.Command])
       extends Command
 
+  final case class RemoveChannel(channelName: IRCString)    extends Command
+  final case class HandleDeadLetter(deadLetter: DeadLetter) extends Command
+
   def apply(): Behavior[Command] = Behaviors.setup { ctx =>
-    ctx.log.info("Initializing user registry")
+    val deadLetterMapper = ctx.messageAdapter[DeadLetter](HandleDeadLetter.apply)
+    ctx.system.eventStream.tell(EventStream.Subscribe(deadLetterMapper))
+    ctx.log.info("Initializing channel registry")
     ChannelRegistry(ctx)
   }
 }
@@ -33,13 +40,31 @@ final case class ChannelRegistry(ctx: ActorContext[ChannelRegistry.Command])
 
   override def onMessage(msg: ChannelRegistry.Command): Behavior[ChannelRegistry.Command] =
     msg match {
+      case ChannelRegistry.HandleDeadLetter(deadLetter)
+          if deadLetter.message.isInstanceOf[Channel.Join] =>
+        val joinMsg = deadLetter.message.asInstanceOf[Channel.Join]
+        ctx.log.info(
+          s"User tried to join ${joinMsg.channelToJoin} but JOIN message encountered deadletters. Trying again."
+        )
+        ctx.self.tell(
+          ChannelRegistry.JoinOrCreate(joinMsg.channelToJoin, joinMsg.newUserPrefix, joinMsg.who)
+        )
+        this
+      case ChannelRegistry.HandleDeadLetter(_) => Behaviors.unhandled
       case ChannelRegistry.JoinOrCreate(name, prefix, user) =>
         if (!channels.contains(name)) {
           val newChan =
-            ctx.spawn(Channel(name), s"chan-{${name.toLower.str.filter(_.isLetterOrDigit)}")
+            ctx.spawn(
+              Channel(ctx.self, name),
+              s"chan-${name.toLower.str.filter(_.isLetterOrDigit)}"
+            )
           channels += (name -> newChan)
         }
-        channels(name).tell(Channel.Join(prefix, user))
+        channels(name).tell(Channel.Join(prefix, user, name))
+        this
+      case ChannelRegistry.RemoveChannel(name) =>
+        ctx.log.info(s"Last user left $name so removing that channel")
+        channels -= name
         this
       case ChannelRegistry.GetChannelList(selectedChannels, replyTo) =>
         val channelsToSend =
