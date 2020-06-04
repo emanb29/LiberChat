@@ -11,6 +11,12 @@ object ChannelRegistry extends RegistryCompanion {
   final val ACTOR_NAME = "channel-registry"
   sealed trait Command
 
+  final case class JoinOrCreate(
+    channelName: IRCString,
+    userPrefix: Client.Prefix,
+    user: ActorRef[Client.Command]
+  ) extends Command
+
   def apply(): Behavior[Command] = Behaviors.setup { ctx =>
     ctx.log.info("Initializing user registry")
     ChannelRegistry(ctx)
@@ -23,5 +29,16 @@ final case class ChannelRegistry(ctx: ActorContext[ChannelRegistry.Command])
   val channels: mutable.Map[IRCString, ActorRef[Channel.Command]] = mutable.Map.empty
 
   override def onMessage(msg: ChannelRegistry.Command): Behavior[ChannelRegistry.Command] =
-    this
+    msg match {
+      case ChannelRegistry.JoinOrCreate(name, prefix, user) =>
+        // TODO test that name is valid?
+        if (!channels.contains(name)) {
+          val newChan =
+            ctx.spawn(Channel(name), s"chan-{${name.toLower.str.filter(_.isLetterOrDigit)}")
+          channels += (name -> newChan)
+        }
+        channels(name).tell(Channel.Join(prefix, user))
+        this
+    }
+
 }

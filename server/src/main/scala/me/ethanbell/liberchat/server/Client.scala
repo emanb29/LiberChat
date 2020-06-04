@@ -5,20 +5,10 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.scaladsl.SourceQueueWithComplete
 import me.ethanbell.liberchat.AkkaUtil.ActorCompanion
 import me.ethanbell.liberchat.Command.PrivMsg
-import me.ethanbell.liberchat.server.Client.{
-  HandleIRCMessage,
-  NotifyJoin,
-  NotifyMessage,
-  ReserveNickCallback
-}
-import me.ethanbell.liberchat.{
-  CommandMessage,
-  IRCString,
-  Message,
-  Response,
-  ResponseMessage,
-  Command => IRCCommand
-}
+import me.ethanbell.liberchat.server.Client.{HandleIRCMessage, NotifyJoin, NotifyMessage, NotifyPart, ReserveNickCallback}
+import me.ethanbell.liberchat.{CommandMessage, IRCString, Message, Response, ResponseMessage, Command => IRCCommand}
+
+import scala.collection.mutable
 
 object Client extends ActorCompanion {
   sealed trait Command
@@ -43,8 +33,19 @@ object Client extends ActorCompanion {
    * Notify the client of a new join in a channel they are in. This also serves as a callback to joining a channel
    * @param newUserPrefix The prefix cooresponding to the user who joined
    * @param channel The channel the new user joined
+   * @param channelRef The handle of the channel
    */
-  final case class NotifyJoin(newUserPrefix: Prefix, channel: IRCString) extends Command
+  final case class NotifyJoin(
+    newUserPrefix: Prefix,
+    channel: IRCString,
+    channelRef: ActorRef[Channel.Command]
+  ) extends Command
+
+  final case class NotifyPart(
+    leavingPrefix: Prefix,
+    reason: Option[String],
+    channel: IRCString
+  ) extends Command
 
   /**
    * Notify the client of a new message
@@ -98,43 +99,54 @@ final case class Client(
 ) extends AbstractBehavior[Client.Command](ctx) {
   private type MessageHandler =
     PartialFunction[Client.Command, Behavior[Client.Command]]
-  var currentMessageHandler: MessageHandler = onMessageDuringInit
+  var currentMessageHandler: MessageHandler                                = onMessageDuringInit
+  val connectedChannels: mutable.Map[IRCString, ActorRef[Channel.Command]] = mutable.Map.empty
+  def prefix: Client.Prefix =
+    if (!initState.isComplete)
+      throw new RuntimeException("Tried to get the prefix of an uninitialized client.")
+    else Client.Prefix(initState.nick.get, initState.username.get, initState.hostname.get)
 
   /**
    * During this phase, [[initState.isComplete]] _must_ return true
    */
   private lazy val onMessageMain: MessageHandler = {
-    // TODO val connectedChannels: mutable.Map[IRCString, ActorRef[Channel.Command]] = mutable.Map.empty
-    val prefix: Client.Prefix =
-      Client.Prefix(initState.nick.get, initState.username.get, initState.hostname.get)
-
-    ({
-      case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
-          if (!target.str.startsWith("#")) =>
-        userRegistry.tell(UserRegistry.SendMessage(prefix, target, ctx.self, msg))
-        this
-      case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
-          if (target.str.startsWith("#")) =>
-        ??? // TODO message channel, if joined
-        this
-      case HandleIRCMessage(CommandMessage(_, IRCCommand.JoinChannels(channels))) =>
-        ??? // TODO join the room
-        this
-      case NotifyJoin(newUserPrefix, channel) =>
-        if (newUserPrefix == prefix) {
-          // TODO ask channel registry for channel handle
-          // TODO add to connected channels
-        }
-        responseQueue.offer(
-          CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channel)))
-        )
-        this
-      case NotifyMessage(sourcePrefix, msgTarget, msg) =>
-        responseQueue.offer(
-          CommandMessage(Some(sourcePrefix.toString), PrivMsg(msgTarget, msg))
-        )
-        this
-    })
+    case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
+        if (!target.str.startsWith("#")) =>
+      userRegistry.tell(UserRegistry.SendMessage(prefix, target, ctx.self, msg))
+      this
+    case HandleIRCMessage(CommandMessage(_, IRCCommand.PrivMsg(target, msg)))
+        if (target.str.startsWith("#")) =>
+      ??? // TODO message channel, if joined
+      this
+    case HandleIRCMessage(CommandMessage(_, IRCCommand.LeaveAll)) =>
+      connectedChannels.foreach {
+        case (_, chan) => chan.tell(Channel.Part(prefix, None))
+      }
+      this
+    case HandleIRCMessage(CommandMessage(_, IRCCommand.JoinChannels(channels))) =>
+      channels.foreach { chan =>
+        channelRegistry.tell(ChannelRegistry.JoinOrCreate(chan, prefix, ctx.self))
+      }
+      this
+    case NotifyJoin(newUserPrefix, channelName, channelRef) =>
+      if (newUserPrefix == prefix) {
+        connectedChannels += (channelName -> channelRef)
+      }
+      responseQueue.offer(
+        CommandMessage(Some(newUserPrefix.toString), IRCCommand.JoinChannels(Vector(channelName)))
+      )
+      this
+    case NotifyPart(leavingPrefix, reason, channel) =>
+      if (leavingPrefix == prefix) {
+        connectedChannels -= channel
+      }
+      responseQueue.offer(CommandMessage(Some(leavingPrefix), ???)) // TODO need a PART IRCCommand
+      this
+    case NotifyMessage(sourcePrefix, msgTarget, msg) =>
+      responseQueue.offer(
+        CommandMessage(Some(sourcePrefix.toString), PrivMsg(msgTarget, msg))
+      )
+      this
   }
 
   case class InitState(
@@ -209,6 +221,9 @@ final case class Client(
           ctx.log.debug(s"Shutting down $this")
           // Free external allocations
           initState.nick.foreach(nick => userRegistry.tell(UserRegistry.FreeNick(nick)))
+          connectedChannels.foreach {
+            case (_, channelRef) => channelRef.tell(Channel.Part(prefix, None))
+          }
           Behaviors.stopped
         case Client.NoOp => this
         case c @ _ =>
