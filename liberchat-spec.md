@@ -60,21 +60,20 @@ Messages consist of 3 parts: an optional prefix, a message identifier (either a 
 Messages adhere to the following CFG (in rough ABNF notation):
 
 ```abnf
-message = (command | response) crlf
-command = [":" userprefix " "] commandname params
-commandname = 1*letter
-
+message      = (command | response) crlf
+command      = [":" userprefix " "] commandname params
+commandname  = 1*letter
 response     = [":" serverprefix " "] responsecode params
 responsecode = 3digit
+
+params   = " " (": " trailing / middle / middle params)
+middle   = 1*linesafe
+trailing = 1*linesafe *(linesafe / " ")
 
 userprefix = nick "!" username "@" hostname
 nick       = 1*nicksafe
 username   = *usersafe
 hostname   = *prefixsafe
-
-params   = " " (": " trailing / middle / middle params)
-middle   = 1*linesafe
-trailing = 1*linesafe *(linesafe / " ")
 
 crlf       = %x0D %x0A
 
@@ -82,7 +81,6 @@ linesafe    = usersafe / nicksafe ; (all but NUL CR LF : SPACE)
 usersafe    = prefixsafe / %x33 ; ! is safe in general
 nicksafe    = prefixsafe / %x40 ; @ is safe in general
 prefixsafe  = %x01-09 / %x0B-0C / %x0E-1F / %x21-32 / %x34-39 / %x3B-3F / %x41-FF ; any octet except %x00, %x0A, %x0D %x20, %x30, %x40 (characters NUL CR LF : @ ! SPACE)
-
 
 letter = %x41-5A / %x61-7A
 digit  = %x30-39
