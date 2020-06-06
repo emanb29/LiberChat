@@ -12,13 +12,6 @@ This protocol MAY be implemented on any system which supports streaming characte
 
 ## 2.2. Definitions
 
-<!--
-<dl>
-<dt>
-</dt>
-<dd>
-</dd>
--->
 <dt>
 User
 </dt>
@@ -48,7 +41,7 @@ For the purposes of this document, case-insensitivity has special semantics. `[`
 Nickname
 </dt>
 <dd>
-A case-insenitive identifier provided by the client that uniquely identifies the client on a given server.
+A case-insensitive identifier provided by the client that uniquely identifies the client on a given server.
 </dd>
 <dt>
 Channel
@@ -210,6 +203,32 @@ Possible responses: `ERR_CANNOTSENDTOCHAN`, `ERR_NOSUCHNICK`
 ## 3.3. Responses
 
 Responses MUST only be issued by the server, and generally communicate server-supplied information or control information. Clients MUST ignore unrecognzied responses.
+
+### 3.3.1. RPL_WELCOME
+
+### 3.3.2. RPL_LIST
+
+### 3.3.3. RPL_LISTEND
+
+### 3.3.4. RPL_NAMREPLY
+
+### 3.3.5. RPL_ENDOFNAMES
+
+### 3.3.6. ERR_NOSUCHNICK
+
+### 3.3.7. ERR_NOSUCHCHANNEL
+
+### 3.3.8. ERR_CANNOTSENDTOCHAN
+
+### 3.3.9. ERR_UNKNOWNCOMMAND
+
+### 3.3.10. ERR_NICKNAMEINUSE
+
+### 3.3.11. ERR_NOTONCHANNEL
+
+### 3.3.12. ERR_NOTREGISTERED
+
+### 3.3.13. ERR_NEEDMOREPARAMS
 
 # 4. Protocol
 
