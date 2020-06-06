@@ -162,7 +162,7 @@ The LIST command is issued by a client to request a list of channel metadata
 
 This command SHOULD only be issued by a client
 
-Arguments: `LIST [channels [target]]`
+Arguments: `LIST [<channels> [target]]`
 
 Where channels is an optional comma-delimited string specifying the (case-insensitive) channel names to describe. If no valid channel names are provided, the server will describe all channels. target is unused.
 
@@ -174,7 +174,7 @@ The NAMES command is issued by a client to request a list of users connected to 
 
 This command SHOULD only be issued by a client
 
-Arguments: `NAMES [channels [target]]`
+Arguments: `NAMES [<channels> [target]]`
 
 Where channels is an optional comma-delimited string specifying the (case-insensitive) channel names to describe. If no valid channel names are provided, the server will describe all channels. target is unused.
 
@@ -182,7 +182,30 @@ Possible responses: `RPL_NAMREPLY`, `RPL_ENDOFNAMES`
 
 ### 3.2.7. QUIT
 
+The QUIT command is issued by a client or a server to notify the recipient that the sender is disconnecting.
+
+This command MAY be issued by a client or a server
+
+Arguments: `QUIT [message]`
+
+Where message is an optional final message, which MAY describe why the sender disconnected.
+
+Possible responses: None
+
 ### 3.2.8. PRIVMSG
+
+The PRIVMSG command is issued by a client or a server to notify the recipient of a client's intent to send a text message. If sending to a channel, the channel name MUST begin with `#`, and the user MUST be connected to that channel.
+
+This command MAY be issued by a client or a server:
+
+- If issued by a client, that client is the one which will be sending the text message.
+- If issued by a server, the message MUST contain a prefix cooresponding to the user sending the text message.
+
+Arguments: `PRIVMSG <target> <message>`
+
+Where target is a case-insensitive nickname or channel name, and message is a string containing the message to be relayed.
+
+Possible responses: `ERR_CANNOTSENDTOCHAN`, `ERR_NOSUCHNICK`
 
 ## 3.3. Responses
 
