@@ -62,12 +62,12 @@ A case-insensitive name and set of clients on a server to which messages MAY be 
 
 ## 3.1. Structure
 
-Messages consist of 3 parts: an optional prefix, a message identifier (either a command name or a response code), and parameters. The last parameter MAY be a "trailing parameter" which starts with a ":" and MAY include spaces.
+Messages consist of 3 parts: an optional prefix, a message identifier (either a command name or a response code), and parameters. The last parameter MAY be a "trailing parameter" which starts with a ":" and MAY include spaces. Empty messages MUST be silently ignored. Malformed messages, delimited by valid crlf sequences, MAY be ignored.
 
 Messages adhere to the following CFG (in rough ABNF notation):
 
 ```abnf
-message      = (command | response) crlf
+message      = [command | response] crlf
 command      = [":" userprefix " "] commandname params
 commandname  = 1*letter
 response     = [":" serverprefix " "] responsecode params
@@ -96,7 +96,7 @@ digit  = %x30-39
 
 ## 3.2. Commands
 
-Commands MAY be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server MAY yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response. Any command sent to a server before the connection is initialized MAY yield `ERR_NOTREGISTERED`
+Commands MAY be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server MAY yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response. Any command sent during the Connection Initialization phase MAY yield `ERR_NOTREGISTERED`
 
 ### 3.2.1. NICK
 
@@ -203,7 +203,7 @@ This command MAY be issued by a client or a server:
 
 Arguments: `PRIVMSG <target> <message>`
 
-Where target is a case-insensitive nickname or channel name, and message is a string containing the message to be relayed.
+Where target is a case-insensitive nickname or channel name, and message is a string containing the text message to be relayed to target.
 
 Possible responses: `ERR_CANNOTSENDTOCHAN`, `ERR_NOSUCHNICK`
 
@@ -213,8 +213,16 @@ Responses MUST only be issued by the server, and generally communicate server-su
 
 ## 4. Protocol
 
-### Connection initialization
+### Connection Initialization
+
+To initiate a connection, a client MUST send a NICK command and a USER command. These MAY be sent in any order. Until both NICK and USER have been received, the client SHOULD NOT send any other commands. When the server has received both a NICK command reserving a valid, unused nickname, and a USER command, the server MUST send a RPL_WELCOME and both parties MUST transition to the Main Protocol phase.
+
+During the Connection Initialization phase, the server MUST reply to any commands except NICK, USER, and QUIT with ERR_NOTREGISTERED.
 
 ### Main Protocol
 
-### Connection teardown
+Any commands MAY be sent by the client. The server MUST respond to any unknown commands with ERR_UNKNOWNCOMMAND. The server MUST respond to any commands missing arguments with ERR_NEEDMOREPARAMS. The server MUST handle any known commands to the best of its ability.
+
+### Connection Teardown
+
+Either the client or the server MAY terminate a connection at any point by sending a QUIT command. The recipient SHOULD respond with a QUIT command of its own. If a connection to a client terminates unexpectedly, without a QUIT command, the server application MUST NOT crash. If a connection to a server terminates unexpectedly, without a QUIT command, the client application SHOULD NOT crash.
