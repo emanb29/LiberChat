@@ -6,9 +6,9 @@ The LiberChat protocol is a near-subset of the text-based [Internet Relay Chat C
 
 ## 2.1. Overall functionality
 
-The high-level functionality this specification documents is the ability for multiple people to communicate with one another. These communications may take place directly between two people, or may take place in a many-to-many context (a "channel", see below). The parties to these communications ("users", see below) may identify themselves by a "nickname", and users may communicate to multiple users and/or multiple channels simultaneously. Channels are identified by name, similar to users' nicknames.
+The high-level functionality this specification documents is the ability for multiple people to communicate with one another. These communications MAY take place directly between two people, or MAY take place in a many-to-many context (a "channel", see below). The parties to these communications ("users", see below) MAY identify themselves by a "nickname", and users MAY communicate to multiple users and/or multiple channels simultaneously. Channels are identified by name, similar to users' nicknames.
 
-This protocol may be implemented on any system which supports streaming character data between multiple hosts, such as TCP. Furthermore, the protocol is designed for ease of implementation and near-compatibility with IRC. In some cases, espescially command parameters, functionality is scaffolded, but intentionally unimplemented. These functions are not necessary for the basic operations of LiberChat, but would need to be implemented in IRC.
+This protocol MAY be implemented on any system which supports streaming character data between multiple hosts, such as TCP. Furthermore, the protocol is designed for ease of implementation and near-compatibility with IRC. In some cases, espescially command parameters, functionality is scaffolded, but intentionally unimplemented. These functions are not necessary for the basic operations of LiberChat, but would need to be implemented in IRC.
 
 ## 2.2. Definitions
 
@@ -54,7 +54,7 @@ A case-insenitive identifier provided by the client that uniquely identifies the
 Channel
 </dt>
 <dd>
-A case-insensitive name and set of clients on a server to which messages may be broadcast.
+A case-insensitive name and set of clients on a server to which messages MAY be broadcast.
 </dd>
 </dl>
 
@@ -62,7 +62,7 @@ A case-insensitive name and set of clients on a server to which messages may be 
 
 ## 3.1. Structure
 
-Messages consist of 3 parts: an optional prefix, a message identifier (either a command name or a response code), and parameters. The last parameter may be a "trailing parameter" which starts with a ":" and may include spaces.
+Messages consist of 3 parts: an optional prefix, a message identifier (either a command name or a response code), and parameters. The last parameter MAY be a "trailing parameter" which starts with a ":" and MAY include spaces.
 
 Messages adhere to the following CFG (in rough ABNF notation):
 
@@ -96,12 +96,13 @@ digit  = %x30-39
 
 ## 3.2. Commands
 
-Commands may be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server may yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response.
+Commands MAY be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server MAY yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response. Any command sent to a server before the connection is initialized MAY yield `ERR_NOTREGISTERED`
 
 ### 3.2.1. NICK
+
 The NICK command is issued by a client to request a nickname.
 
-This command may only be issued from a client to a server.
+This command MAY only be issued from a client to a server.
 
 Arguments: `NICK <nickname> [hops]`
 
@@ -110,9 +111,10 @@ Where nickname is a case-insensitive string, and hops is an integer (currently u
 Possible responses: `ERR_NICKNAMEINUSE`, `RPL_WELCOME`
 
 ### 3.2.2. USER
+
 The USER command is issued by a client to specify the user's information
 
-This command may only be issued from a client to a server.
+This command MAY only be issued from a client to a server.
 
 Arguments: `USER <username> <hostname> <servername> <realname>`
 
@@ -121,17 +123,50 @@ Where username is a string specifying the user's username (or "\*"), hostname is
 Possible responses: `RPL_WELCOME`
 
 ### 3.2.3. JOIN
+
+The JOIN command is issued by a client or a server to notify the recipient of a client's intent to join channel\[s\], or (if the parameter is `0`, its intent to leave all channels).
+
+This command MAY be issued by a client or a server:
+ - If issued by a client, that client is the one which will be joining the specified channel\[s\]
+ - If issued by a server, exactly one channel MUST be specified, and the message MUST contain a prefix cooresponding to the user joining the channel.
+ - The `0` variant of this command MAY only be issued by a client.
+
+Arguments: `JOIN <channels>`
+
+Where channels is one of the following:
+ - A comma-delimited string specifying the (case-insensitive) channel names to join or create, each starting with a `#`.
+ - The character `0`.
+
+Possible responses: `ERR_NOSUCHCHANNEL`
+
 ### 3.2.4. PART
+
+The PART command is issued by a client or a server to notify the recipient of a client's intent to leave channel\[s\].
+
+This command MAY be issued by a client or a server:
+ - If issued by a client, that client is the one which will be leaving the specified channel\[s\].
+ - If issued by a server, exactly one channel MUST be specified, and the message MUST contain a prefix cooresponding to the user leaving the channel.
+
+Arguments: `PART <channels> [message]`
+
+Where channels is a comma-delimited string specifying the (case-insensitive) channel names to leave, each starting with a `#`, and message is an (optional) reason for leaving the channels.
+
+Possible responses: `ERR_NOTONCHANNEL`, `ERR_NOSUCHCHANNEL`
+
 ### 3.2.5. LIST
+
 ### 3.2.6. NAMES
+
 ### 3.2.7. QUIT
+
 ### 3.2.8. PRIVMSG
 
 ## 3.3. Responses
 
-Responses may only be issued by the server, and generally communicate server-supplied information or control information.
+Responses MAY only be issued by the server, and generally communicate server-supplied information or control information.
 
 ## 4. Protocol
+
 ### Connection initialization
 
 ### Main Protocol
