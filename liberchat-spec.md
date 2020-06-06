@@ -211,18 +211,18 @@ Possible responses: `ERR_CANNOTSENDTOCHAN`, `ERR_NOSUCHNICK`
 
 Responses MUST only be issued by the server, and generally communicate server-supplied information or control information.
 
-## 4. Protocol
+# 4. Protocol
 
-### Connection Initialization
+## 4.1. Connection Initialization
 
 To initiate a connection, a client MUST send a NICK command and a USER command. These MAY be sent in any order. Until both NICK and USER have been received, the client SHOULD NOT send any other commands. When the server has received both a NICK command reserving a valid, unused nickname, and a USER command, the server MUST send a RPL_WELCOME and both parties MUST transition to the Main Protocol phase.
 
 During the Connection Initialization phase, the server MUST reply to any commands except NICK, USER, and QUIT with ERR_NOTREGISTERED.
 
-### Main Protocol
+## 4.2. Main Protocol
 
 Any commands MAY be sent by the client. The server MUST respond to any unknown commands with ERR_UNKNOWNCOMMAND. The server MUST respond to any commands missing arguments with ERR_NEEDMOREPARAMS. The server MUST handle any known commands to the best of its ability.
 
-### Connection Teardown
+## 4.3. Connection Teardown
 
 Either the client or the server MAY terminate a connection at any point by sending a QUIT command. The recipient SHOULD respond with a QUIT command of its own. If a connection to a client terminates unexpectedly, without a QUIT command, the server application MUST NOT crash. If a connection to a server terminates unexpectedly, without a QUIT command, the client application SHOULD NOT crash.
