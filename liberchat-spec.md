@@ -109,6 +109,24 @@ Where nickname is a case-insensitive string, and hops is an integer (currently u
 
 Possible responses: `ERR_NICKNAMEINUSE`, `RPL_WELCOME`
 
+### 3.2.2. USER
+The USER command is issued by a client to specify the user's information
+
+This command may only be issued from a client to a server.
+
+Arguments: `USER <username> <hostname> <servername> <realname>`
+
+Where username is a string specifying the user's username (or "\*"), hostname is a string specifying the name of the user's host machine (or "\*"), servername is a string specifying the name of the server to connect to (or "\*"), and realname is a string specifying the real name of the user
+
+Possible responses: `RPL_WELCOME`
+
+### 3.2.3. JOIN
+### 3.2.4. PART
+### 3.2.5. LIST
+### 3.2.6. NAMES
+### 3.2.7. QUIT
+### 3.2.8. PRIVMSG
+
 ## 3.3. Responses
 
 Responses may only be issued by the server, and generally communicate server-supplied information or control information.
