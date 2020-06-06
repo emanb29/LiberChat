@@ -102,7 +102,7 @@ Commands MAY be issued by the client or the server, and generally communicate cl
 
 The NICK command is issued by a client to request a nickname.
 
-This command MAY only be issued from a client to a server.
+This command SHOULD only be issued from a client to a server.
 
 Arguments: `NICK <nickname> [hops]`
 
@@ -114,7 +114,7 @@ Possible responses: `ERR_NICKNAMEINUSE`, `RPL_WELCOME`
 
 The USER command is issued by a client to specify the user's information
 
-This command MAY only be issued from a client to a server.
+This command SHOULD only be issued from a client to a server.
 
 Arguments: `USER <username> <hostname> <servername> <realname>`
 
@@ -127,15 +127,17 @@ Possible responses: `RPL_WELCOME`
 The JOIN command is issued by a client or a server to notify the recipient of a client's intent to join channel\[s\], or (if the parameter is `0`, its intent to leave all channels).
 
 This command MAY be issued by a client or a server:
- - If issued by a client, that client is the one which will be joining the specified channel\[s\]
- - If issued by a server, exactly one channel MUST be specified, and the message MUST contain a prefix cooresponding to the user joining the channel.
- - The `0` variant of this command MAY only be issued by a client.
+
+- If issued by a client, that client is the one which will be joining the specified channel\[s\]
+- If issued by a server, exactly one channel MUST be specified, and the message MUST contain a prefix cooresponding to the user joining the channel.
+- The `0` variant of this command SHOULD only be issued by a client.
 
 Arguments: `JOIN <channels>`
 
 Where channels is one of the following:
- - A comma-delimited string specifying the (case-insensitive) channel names to join or create, each starting with a `#`.
- - The character `0`.
+
+- A comma-delimited string specifying the (case-insensitive) channel names to join or create, each starting with a `#`.
+- The character `0`.
 
 Possible responses: `ERR_NOSUCHCHANNEL`
 
@@ -144,8 +146,9 @@ Possible responses: `ERR_NOSUCHCHANNEL`
 The PART command is issued by a client or a server to notify the recipient of a client's intent to leave channel\[s\].
 
 This command MAY be issued by a client or a server:
- - If issued by a client, that client is the one which will be leaving the specified channel\[s\].
- - If issued by a server, exactly one channel MUST be specified, and the message MUST contain a prefix cooresponding to the user leaving the channel.
+
+- If issued by a client, that client is the one which will be leaving the specified channel\[s\].
+- If issued by a server, exactly one channel MUST be specified, and the message MUST contain a prefix cooresponding to the user leaving the channel.
 
 Arguments: `PART <channels> [message]`
 
@@ -155,7 +158,27 @@ Possible responses: `ERR_NOTONCHANNEL`, `ERR_NOSUCHCHANNEL`
 
 ### 3.2.5. LIST
 
+The LIST command is issued by a client to request a list of channel metadata
+
+This command SHOULD only be issued by a client
+
+Arguments: `LIST [channels [target]]`
+
+Where channels is an optional comma-delimited string specifying the (case-insensitive) channel names to describe. If no valid channel names are provided, the server will describe all channels. target is unused.
+
+Possible responses: `RPL_LIST`, `RPL_LISTEND`
+
 ### 3.2.6. NAMES
+
+The NAMES command is issued by a client to request a list of users connected to channel\[s\]
+
+This command SHOULD only be issued by a client
+
+Arguments: `NAMES [channels [target]]`
+
+Where channels is an optional comma-delimited string specifying the (case-insensitive) channel names to describe. If no valid channel names are provided, the server will describe all channels. target is unused.
+
+Possible responses: `RPL_NAMREPLY`, `RPL_ENDOFNAMES`
 
 ### 3.2.7. QUIT
 
@@ -163,7 +186,7 @@ Possible responses: `ERR_NOTONCHANNEL`, `ERR_NOSUCHCHANNEL`
 
 ## 3.3. Responses
 
-Responses MAY only be issued by the server, and generally communicate server-supplied information or control information.
+Responses MUST only be issued by the server, and generally communicate server-supplied information or control information.
 
 ## 4. Protocol
 

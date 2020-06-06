@@ -74,7 +74,7 @@ final case class ChannelRegistry(ctx: ActorContext[ChannelRegistry.Command])
           if (selectedChannels.isEmpty) channels.keys
           else selectedChannels.toSet & channels.keySet
         val channelInfo = channelsToSend.map((_, -1, "This server does not support topics.")).toList
-        replyTo.tell(Client.SendChannelList(channelInfo))
+        replyTo.tell(Client.NotifyChannelList(channelInfo))
         this
       case ChannelRegistry.ListNames(selectedChannels, replyTo) =>
         val channelsToSend =

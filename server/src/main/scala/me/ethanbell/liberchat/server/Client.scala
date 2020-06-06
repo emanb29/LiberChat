@@ -67,7 +67,7 @@ object Client extends ActorCompanion {
    */
   final case class ReserveNickCallback(nick: IRCString, success: Boolean) extends Command
 
-  final case class SendChannelList(channels: Seq[(IRCString, Int, String)]) extends Command
+  final case class NotifyChannelList(channels: Seq[(IRCString, Int, String)]) extends Command
 
   final case class NotifyNames(channel: IRCString, names: Seq[IRCString]) extends Command
 
@@ -179,7 +179,7 @@ final case class Client(
         CommandMessage(Some(sourcePrefix.toString), PrivMsg(msgTarget, msg))
       )
       this
-    case Client.SendChannelList(channels) =>
+    case Client.NotifyChannelList(channels) =>
       val responses: Seq[Response] = channels.map {
           case (name, users, topic) => Response.RPL_LIST(name, users, topic)
         } :+ Response.RPL_LISTEND
