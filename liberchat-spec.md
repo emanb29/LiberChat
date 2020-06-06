@@ -6,11 +6,11 @@ The LiberChat protocol is a near-subset of the text-based [Internet Relay Chat C
 
 ## 2.1. Overall functionality
 
-The high-level functionality this specification documents is the ability for multiple people to communicate with one another. These communications may take place directly between two people, or may take place in a many-to-many context (a "channel", see below). The parties to these communications ("users", see below) may identify themselves by a "nickname", and users may communicate to multiple users and/or multiple channels simultaneously. Channels are identified by name, similar to users' nicknames. Furthermore, the protocol is designed for ease of implementation and near-compatibility with IRC.
+The high-level functionality this specification documents is the ability for multiple people to communicate with one another. These communications may take place directly between two people, or may take place in a many-to-many context (a "channel", see below). The parties to these communications ("users", see below) may identify themselves by a "nickname", and users may communicate to multiple users and/or multiple channels simultaneously. Channels are identified by name, similar to users' nicknames.
 
-This protocol may be implemented on any system which supports streaming character data between multiple hosts, such as TCP.
+This protocol may be implemented on any system which supports streaming character data between multiple hosts, such as TCP. Furthermore, the protocol is designed for ease of implementation and near-compatibility with IRC. In some cases, espescially command parameters, functionality is scaffolded, but intentionally unimplemented. These functions are not necessary for the basic operations of LiberChat, but would need to be implemented in IRC.
 
-## 2.1. Definitions
+## 2.2. Definitions
 
 <!--
 <dl>
@@ -36,6 +36,13 @@ Server
 </dt>
 <dd>
 A single program which listens to and handles messages from multiple clients.
+</dd>
+<dl>
+Case-insensitive
+<dt>
+</dt>
+<dd>
+For the purposes of this document, case-insensitivity has special semantics. `[` is the uppercase variant of `{`, `]` is considered to be the uppercase variant of `}`, `\` is considered to be the uppercase variant of `|`, and `~` is considered to be the uppercase variant of `^`. These variants hold with respect to case-\[in\]sensitivity.
 </dd>
 <dt>
 Nickname
@@ -89,11 +96,26 @@ digit  = %x30-39
 
 ## 3.2. Commands
 
-Commands may be issued by the client or the server, and generally communicate client-supplied information.
+Commands may be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server may yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response.
 
 ### 3.2.1. NICK
-TODO
+The NICK command is issued by a client to request a nickname.
+
+This command may only be issued from a client to a server.
+
+Arguments: `NICK <nickname> [hops]`
+
+Where nickname is a case-insensitive string, and hops is an integer (currently unused)
+
+Possible responses: `ERR_NICKNAMEINUSE`, `RPL_WELCOME`
 
 ## 3.3. Responses
 
 Responses may only be issued by the server, and generally communicate server-supplied information or control information.
+
+## 4. Protocol
+### Connection initialization
+
+### Main Protocol
+
+### Connection teardown
