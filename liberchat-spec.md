@@ -96,7 +96,7 @@ digit  = %x30-39
 
 ## 3.2. Commands
 
-Commands MAY be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server MAY yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response. Any command sent during the Connection Initialization phase MAY yield `ERR_NOTREGISTERED`
+Commands MAY be issued by the client or the server, and generally communicate client-supplied information. Any command sent to a server MAY yield `ERR_UNKNOWNCOMMAND` or `ERR_NEEDMOREPARAMS`. Note that commands will not always receive a response. Any command sent during the Connection Initialization phase MAY yield `ERR_NOTREGISTERED` Servers MAY ignore unrecognized commands.
 
 ### 3.2.1. NICK
 
@@ -209,7 +209,7 @@ Possible responses: `ERR_CANNOTSENDTOCHAN`, `ERR_NOSUCHNICK`
 
 ## 3.3. Responses
 
-Responses MUST only be issued by the server, and generally communicate server-supplied information or control information.
+Responses MUST only be issued by the server, and generally communicate server-supplied information or control information. Clients MUST ignore unrecognzied responses.
 
 # 4. Protocol
 
