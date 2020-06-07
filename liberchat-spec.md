@@ -11,7 +11,7 @@ The high-level functionality this specification documents is the ability for mul
 This protocol MAY be implemented on any system which supports streaming character data between multiple hosts, such as TCP. Furthermore, the protocol is designed for ease of implementation and near-compatibility with IRC. In some cases, espescially command parameters, functionality is scaffolded, but intentionally unimplemented. These functions are not necessary for the basic operations of LiberChat, but would need to be implemented in IRC.
 
 ## 2.2. Definitions
-
+<dl>
 <dt>
 User
 </dt>
@@ -30,12 +30,11 @@ Server
 <dd>
 A single program which listens to and handles messages from multiple clients.
 </dd>
-<dl>
-Case-insensitive
 <dt>
+Case-insensitive
 </dt>
 <dd>
-For the purposes of this document, case-insensitivity has special semantics. `[` is the uppercase variant of `{`, `]` is considered to be the uppercase variant of `}`, `\` is considered to be the uppercase variant of `|`, and `~` is considered to be the uppercase variant of `^`. These variants hold with respect to case-\[in\]sensitivity.
+For the purposes of this document, case-insensitivity has special semantics. `[` is the uppercase variant of `{`, `]` is considered to be the uppercase variant of `}`, `\` is considered to be the uppercase variant of `|`, and `~` is considered to be the uppercase variant of `^`. These variants hold with respect to case-[in]sensitivity.
 </dd>
 <dt>
 Nickname
@@ -206,29 +205,79 @@ Responses MUST only be issued by the server, and generally communicate server-su
 
 ### 3.3.1. RPL_WELCOME
 
+Format: `001 :Welcome to the LiberChat server <nick>!<user>@<host>`
+
+Where nick is the nickname specified by the client, user is the username specified by the client, and host is the hostname specified by the client.
+
 ### 3.3.2. RPL_LIST
+
+Format: `322 <channel> <usercount> :<topic>`
+
+Where channel is the name of the channel (starting with `#`), usercount is the number of users on the channel, and topic is the topic of the channel. Usercount and topic MAY contain placeholder values.
 
 ### 3.3.3. RPL_LISTEND
 
+Format: `323 :End of LIST`
+
 ### 3.3.4. RPL_NAMREPLY
+
+Format: `353 <sym> <channel> <...nicks>`
+
+Where sym is a symbol identifying the type of channel (servers MUST set this to `=`, but clients MUST be able to parse `=`, `*`, and `@`), channel is the name of the channel (starting with `#`), and ...nicks is a list of space-seperated nicknames of users on the channel.
+
+A client MUST be able to receive and recombine multiple RPL_NAMREPLY messages per channel.
 
 ### 3.3.5. RPL_ENDOFNAMES
 
+Format: `366 <channel> :End of NAMES list`
+
+Where channel is the name of the channel (starting with `#`).
+
 ### 3.3.6. ERR_NOSUCHNICK
+
+Format: `401 <nick> :No such nick/channel`
+
+Where nick is a nickname that is not currently used on the server.
 
 ### 3.3.7. ERR_NOSUCHCHANNEL
 
+Format: `403 <channel> :No such channel`
+
+Where channel is the name of the requested channel. This response MAY indicate an invalid channel name, particularly if channel doesn't start with `#`.
+
 ### 3.3.8. ERR_CANNOTSENDTOCHAN
+
+Format: `404 <channel> :Cannot send to channel`
+
+Where channel is the name of a channel (starting with `#`) the client is not connected to.
 
 ### 3.3.9. ERR_UNKNOWNCOMMAND
 
+Format: `421 <command> :Unknown command`
+
+Where command is the name of a command that could not be parsed or recognized. This MAY be used to indicate a parameter had an invalid format.
+
 ### 3.3.10. ERR_NICKNAMEINUSE
+
+Format: `433 <nick> :Nickname is already in use`
+
+Where nick is a nickname that is currently used on the server.
 
 ### 3.3.11. ERR_NOTONCHANNEL
 
+Format: `442 <channel> :You're not on that channel`
+
+Where channel is the name of a channel (starting with `#`) the client is not connected to.
+
 ### 3.3.12. ERR_NOTREGISTERED
 
+Format: `451 :You have not registered`
+
 ### 3.3.13. ERR_NEEDMOREPARAMS
+
+Format: `461 <command> :Not enough parameters`
+
+Where command is the name of a command that was parsed and recognized, but provided insufficient parameters. This MAY be used to indicate a parameter had an invalid format.
 
 # 4. Protocol
 
